@@ -20,7 +20,7 @@ Este projeto documenta uma modelagem incremental de pagamentos.
 - regras de negocio e fluxos que cruzam produto, carrinho e pagamento devem ficar em uma pagina top-level propria, nao como subsecao escondida na pagina principal; os fluxos devem aparecer de forma visivel na propria pagina
 - documentar estados com tabela de transicao e diagrama de ciclo na secao correspondente
 - na v1, `PENDING` cobre a espera da resposta; sucesso do pagamento e `APPROVED`; `CAPTURED` fica para evolucao posterior se houver separacao entre aprovacao e captura
-- em `cart_payment`, `authorization_code` guarda o codigo de aprovacao quando existir, `failure_reason` guarda o motivo da recusa, e `approved_at`/`failed_at` sao timestamps mutuamente exclusivos do desfecho da tentativa; em `PENDING`, esses campos ficam nulos
+- em `cart_payment`, `authorization_code` guarda o codigo de aprovacao quando existir, `failure_code` guarda o codigo da recusa, `failure_message` guarda a mensagem da recusa, e `approved_at`/`failed_at` sao timestamps mutuamente exclusivos do desfecho da tentativa; em `PENDING`, esses campos ficam nulos
 - produto e o catalogo base; a variacao de periodo, preco, bonus e vigencia fica em `product_version`
 - `sku` e o codigo publico do produto
 - a camada publica resolve o produto por `sku` e exibe apenas a versao vigente daquele `sku`
