@@ -1,5 +1,5 @@
 -- gnarus-payment-doc
--- Versao 1: empresa, unidade de negocio, produto, bundle versionado, versao comercial, carrinho/checkout e pagamento
+-- Versao 1: empresa, unidade de negocio, produto, bundle versionado, ofertas de checkout, versao comercial, carrinho/checkout e pagamento
 -- A modelagem deve crescer de forma incremental, sem antecipar regras que ainda nao existem.
 
 CREATE TABLE company (
@@ -149,6 +149,56 @@ CREATE TABLE cart_item (
     FOREIGN KEY (product_version_id) REFERENCES product_version(id),
   CONSTRAINT fk_cart_item_business_unit
     FOREIGN KEY (business_unit_id) REFERENCES business_unit(id)
+);
+
+-- checkout_offer modela upsell, cross-sell e cortesia no checkout.
+CREATE TABLE checkout_offer (
+  id INTEGER PRIMARY KEY,
+  company_id INTEGER NOT NULL,
+  source_product_version_id INTEGER NOT NULL,
+  offered_product_version_id INTEGER NOT NULL,
+  courtesy_product_version_id INTEGER,
+  priority INTEGER NOT NULL DEFAULT 100,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  valid_from TIMESTAMP NOT NULL,
+  valid_to TIMESTAMP,
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP,
+  CONSTRAINT fk_checkout_offer_company
+    FOREIGN KEY (company_id) REFERENCES company(id),
+  CONSTRAINT fk_checkout_offer_source_product_version
+    FOREIGN KEY (source_product_version_id) REFERENCES product_version(id),
+  CONSTRAINT fk_checkout_offer_offered_product_version
+    FOREIGN KEY (offered_product_version_id) REFERENCES product_version(id),
+  CONSTRAINT fk_checkout_offer_courtesy_product_version
+    FOREIGN KEY (courtesy_product_version_id) REFERENCES product_version(id),
+  CONSTRAINT uk_checkout_offer_history
+    UNIQUE (company_id, source_product_version_id, offered_product_version_id, valid_from)
+);
+
+-- cart_offer guarda a oferta exibida e o resultado da decisao do comprador.
+CREATE TABLE cart_offer (
+  id INTEGER PRIMARY KEY,
+  cart_id INTEGER NOT NULL,
+  checkout_offer_id INTEGER NOT NULL,
+  source_cart_item_id INTEGER NOT NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'OFFERED',
+  selected_cart_item_id INTEGER,
+  courtesy_cart_item_id INTEGER,
+  selected_at TIMESTAMP,
+  declined_at TIMESTAMP,
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP,
+  CONSTRAINT fk_cart_offer_cart
+    FOREIGN KEY (cart_id) REFERENCES cart(id),
+  CONSTRAINT fk_cart_offer_checkout_offer
+    FOREIGN KEY (checkout_offer_id) REFERENCES checkout_offer(id),
+  CONSTRAINT fk_cart_offer_source_cart_item
+    FOREIGN KEY (source_cart_item_id) REFERENCES cart_item(id),
+  CONSTRAINT fk_cart_offer_selected_cart_item
+    FOREIGN KEY (selected_cart_item_id) REFERENCES cart_item(id),
+  CONSTRAINT fk_cart_offer_courtesy_cart_item
+    FOREIGN KEY (courtesy_cart_item_id) REFERENCES cart_item(id)
 );
 
 CREATE TABLE payment_method (

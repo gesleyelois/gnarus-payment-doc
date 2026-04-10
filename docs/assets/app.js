@@ -2,12 +2,12 @@ const sections = [
   {
     label: "Base",
     title: "01. Empresa",
-    copy: `- \`company\` delimita o tenant.
-- \`business_unit\` organiza produtos, carrinhos e regras dentro da empresa.
-- a visao geral fica em camadas: catalogo, bundle, checkout e pagamento.
-- \`bundle_version\` guarda o historico da composicao; \`bundle_item\` pertence a \`bundle_version\`.
-- \`business_unit_id\` e obrigatorio em produto e na linha do carrinho; e opcional em bundle, carrinho e regra.
-- \`sku\` e \`payment_method.code\` sao unicos por empresa.`,
+    copy: `company delimita o tenant.
+business_unit organiza produtos, carrinhos e regras dentro da empresa.
+a visao geral fica em camadas: catalogo, bundle, ofertas, checkout e pagamento.
+bundle_version guarda o historico da composicao; bundle_item pertence a bundle_version.
+business_unit_id e obrigatorio em produto e na linha do carrinho; e opcional em bundle, carrinho e regra.
+sku e payment_method.code sao unicos por empresa.`,
     tables: [
       {
         title: "Valores controlados",
@@ -15,7 +15,8 @@ const sections = [
         rows: [
           ["company.status", "Estado da empresa.", "ACTIVE | INACTIVE"],
           ["business_unit.status", "Estado da unidade de negocio.", "ACTIVE | INACTIVE"],
-          ["bundle.status", "Estado do bundle.", "ACTIVE | INACTIVE"]
+          ["bundle.status", "Estado do bundle.", "ACTIVE | INACTIVE"],
+          ["checkout_offer.active", "Estado da oferta de checkout.", "true | false"]
         ]
       },
       {
@@ -34,6 +35,7 @@ const sections = [
         rows: [
           ["Catalogo", "company, business_unit, product, product_version", "Cadastro e historico comercial."],
           ["Bundle", "bundle, bundle_version, bundle_item", "Composicao publica versionada."],
+          ["Ofertas", "checkout_offer, cart_offer", "Addons opcionais no checkout."],
           ["Checkout", "cart, cart_item, cart_payment", "Snapshot da compra e pagamento."],
           ["Pagamento", "payment_method, payment_method_rule", "Meios e regras de uso."]
         ]
@@ -46,6 +48,8 @@ const sections = [
           ["bundle", "obrigatorio", "opcional", "Raiz publica da composicao."],
           ["bundle_version", "via bundle", "via bundle", "Versao historica da composicao."],
           ["bundle_item", "via bundle_version", "-", "Itens da bundle_version."],
+          ["checkout_offer", "obrigatorio", "-", "Oferta opcional ligada ao catalogo."],
+          ["cart_offer", "via cart", "-", "Selecao da oferta no checkout."],
           ["cart", "obrigatorio", "opcional", "Checkout da empresa; snapshot da bundle_version."],
           ["cart_item", "via cart", "obrigatorio", "Linha da compra e snapshot da BU."],
           ["payment_method", "obrigatorio", "-", "Meio liberado por empresa."],
@@ -66,6 +70,11 @@ const sections = [
     BUNDLE[bundle]
     BUNDLE_VERSION[bundle_version]
     BUNDLE_ITEM[bundle_item]
+  end
+
+  subgraph OFERTAS_GROUP["Ofertas"]
+    CHECKOUT_OFFER[checkout_offer]
+    CART_OFFER[cart_offer]
   end
 
   subgraph CHECKOUT_GROUP["Checkout"]
@@ -89,6 +98,11 @@ const sections = [
   BUNDLE --> BUNDLE_VERSION
   BUNDLE_VERSION --> BUNDLE_ITEM
   PRODUCT_VERSION --> BUNDLE_ITEM
+
+  COMPANY --> CHECKOUT_OFFER
+  PRODUCT_VERSION --> CHECKOUT_OFFER
+  CART --> CART_OFFER
+  CHECKOUT_OFFER --> CART_OFFER
 
   COMPANY --> CART
   BUSINESS_UNIT --> CART
@@ -120,6 +134,15 @@ const sections = [
   BUNDLE ||--o{ BUNDLE_VERSION : "1:N"
   BUNDLE_VERSION ||--o{ BUNDLE_ITEM : "1:N"
   PRODUCT_VERSION ||--o{ BUNDLE_ITEM : "1:N"`
+      },
+      {
+        title: "Ofertas",
+        copy: `A camada de ofertas liga a versao de origem ao addon e, quando houver selecao, materializa o item adicional e a cortesia no checkout.`,
+        diagram: `flowchart LR
+  SOURCE[cart_item origem] --> CART_OFFER[cart_offer]
+  CHECKOUT_OFFER[checkout_offer] --> CART_OFFER
+  CART_OFFER --> ADDON[cart_item addon]
+  CART_OFFER --> COURTESY[cart_item cortesia]`
       },
       {
         title: "Checkout",
@@ -270,8 +293,52 @@ VALUES
   (3, 1, 24, 0, 349.90, 'BRL', '2026-01-01', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`
   },
   {
+    label: "Ofertas",
+    title: "03. Ofertas",
+    copy: `Oferta opcional no checkout. \`checkout_offer\` conecta a versao de origem ao addon sugerido. O addon pode ser o mesmo produto em outra versao ou um produto de outra BU. Quando houver cortesia, o item gratuito entra junto com a selecao do addon. \`cart_offer\` registra a oferta mostrada, a resposta do comprador e os itens materializados no carrinho.`,
+    tables: [
+      {
+        title: "Valores controlados",
+        columns: ["Campo", "Descricao", "Valores"],
+        rows: [
+          ["checkout_offer.active", "Disponibilidade da oferta.", "true | false"],
+          ["cart_offer.status", "Estado da selecao da oferta.", "OFFERED | SELECTED | DECLINED | EXPIRED"]
+        ]
+      },
+      {
+        title: "Contexto da oferta",
+        columns: ["Campo", "Regra", "Uso"],
+        rows: [
+          ["company_id", "Obrigatorio em checkout_offer.", "Oferta pertence a empresa."],
+          ["source_product_version_id", "Obrigatorio.", "Versao que dispara a oferta."],
+          ["offered_product_version_id", "Obrigatorio.", "Addon sugerido; pode ser upsell ou cross-sell."],
+          ["courtesy_product_version_id", "Opcional.", "Produto gratuito quando o addon e selecionado."],
+          ["priority", "Menor valor primeiro.", "Define a ordem quando houver mais de uma oferta ativa."]
+        ]
+      },
+      {
+        title: "Selecao no carrinho",
+        columns: ["Campo", "Regra", "Uso"],
+        rows: [
+          ["cart_id", "Obrigatorio.", "Carrinho onde a oferta foi apresentada."],
+          ["checkout_offer_id", "Obrigatorio.", "Oferta configurada usada no checkout."],
+          ["source_cart_item_id", "Obrigatorio.", "Item base que disparou a oferta."],
+          ["selected_cart_item_id", "Opcional.", "Item addon criado quando a oferta e aceita."],
+          ["courtesy_cart_item_id", "Opcional.", "Item gratuito criado quando a oferta tem cortesia."],
+          ["selected_at", "Opcional.", "Timestamp da aceitacao."],
+          ["declined_at", "Opcional.", "Timestamp da recusa."]
+        ]
+      }
+    ],
+    diagram: `flowchart LR
+  SOURCE[cart_item origem] --> OFFER_RULE[checkout_offer]
+  OFFER_RULE --> CART_OFFER[cart_offer]
+  CART_OFFER --> ADDON[cart_item addon]
+  CART_OFFER --> COURTESY[cart_item cortesia]`
+  },
+  {
     label: "Carrinho",
-    title: "03. Carrinho",
+    title: "04. Carrinho",
     copy: `O carrinho guarda o snapshot da versao escolhida dentro da empresa. \`company_id\` identifica o tenant. \`bundle_version_id\` aponta a versao de origem quando a compra nasce de um bundle. \`business_unit_id\` no cabecalho e opcional; quando a venda mistura BUs, ele fica nulo. Cada \`cart_item\` grava a BU da linha. \`access_months\` e \`bonus_months\` repetem os termos da oferta no momento da compra. \`quantity\` indica quantas unidades daquela linha foram compradas. \`commercial_segment\` define o contexto da venda, como B2C ou B2B. Ao reabrir o carrinho, a interface usa \`cart_item.product_version_id\`, nao \`product_id\`.`,
     tables: [
       {
@@ -378,7 +445,7 @@ VALUES
   },
   {
     label: "Pagamento",
-    title: "04. Pagamento",
+    title: "05. Pagamento",
     copy: `A tentativa entra em PENDING dentro da empresa. A disponibilidade dos meios vem de payment_method_rule, com regra por produto, por BU, por segmento comercial ou global. Cartao aprova ou recusa na hora. PIX, NuPay e PayPal podem confirmar depois; enquanto isso, a linha permanece em PENDING.`,
     tables: [
       {
@@ -506,6 +573,55 @@ VALUES
   VERSION --> ITEM[cart_item snapshot]
   ITEM --> CART[cart totals]`,
     contentBlocks: [
+      {
+        title: "Ofertas",
+        copy: `A oferta parte da versao de origem do produto. Se o comprador aceita, o checkout grava \`cart_offer\` e cria o addon; quando ha cortesia configurada, um segundo \`cart_item\` gratuito entra no carrinho.`,
+        tables: [
+          {
+            title: "Cenarios",
+            columns: ["Cenario", "Leitura", "Snapshot"],
+            rows: [
+              ["Upsell", "Mesma linha, prazo maior.", "12 meses -> 24 meses."],
+              ["Cross sell", "Produto de outra BU.", "Produto A oferece Produto B."],
+              ["Cortesia", "Add-on escolhido gera brinde.", "Addon selecionado -> produto gratis."]
+            ]
+          },
+          {
+            title: "Estado da oferta",
+            columns: ["Estado", "Leitura", "Efeito"],
+            rows: [
+              ["OFFERED", "Oferta exibida ao comprador.", "Aguardando decisao."],
+              ["SELECTED", "Oferta aceita.", "cart_item do addon e da cortesia ficam vinculados."],
+              ["DECLINED", "Oferta recusada.", "Nenhum item adicional e criado."],
+              ["EXPIRED", "Prazo da oferta encerrou.", "Oferta nao pode mais ser selecionada."]
+            ]
+          },
+          {
+            title: "Selecao no carrinho",
+            columns: ["Campo", "Regra", "Uso"],
+            rows: [
+              ["cart_id", "Obrigatorio.", "Carrinho onde a oferta foi apresentada."],
+              ["checkout_offer_id", "Obrigatorio.", "Oferta configurada usada no checkout."],
+              ["source_cart_item_id", "Obrigatorio.", "Item base que disparou a oferta."],
+              ["selected_cart_item_id", "Opcional.", "Item addon criado quando a oferta e aceita."],
+              ["courtesy_cart_item_id", "Opcional.", "Item gratuito criado quando a oferta tem cortesia."]
+            ]
+          }
+        ],
+        diagram: `sequenceDiagram
+  participant U as Usuario
+  participant C as cart
+  participant O as checkout_offer
+  participant R as cart_offer
+  participant I as cart_item
+
+  U->>C: abre checkout
+  C->>O: carrega ofertas ativas
+  U->>R: seleciona addon
+  R->>I: cria cart_item addon
+  R->>I: cria cart_item cortesia
+  R->>C: atualiza totais`
+      },
       {
         title: "Fluxo do checkout",
         copy: `O carrinho abre no contexto da empresa. Se houver BU, o carrinho carrega esse recorte. Depois da selecao do meio de pagamento, a tentativa entra em \`PENDING\`. Se a resposta vier com sucesso, o carrinho fecha em \`COMPLETED\`. Se falhar, o checkout continua aberto para nova tentativa.`,
@@ -668,7 +784,7 @@ VALUES
   },
   {
     label: "Evolucao",
-    title: "05. Evolucao",
+    title: "06. Evolucao",
     copy: `- \`customer\`
 - \`coupon\`
 - \`refund\`
@@ -738,6 +854,19 @@ const entityAttributes = {
     { name: "created_at", type: "Timestamp", description: "Data de criacao." },
     { name: "updated_at", type: "Timestamp", description: "Data da ultima atualizacao." }
   ],
+  CHECKOUT_OFFER: [
+    { name: "id", type: "Integer", description: "Identificador da linha." },
+    { name: "company_id", type: "Integer", description: "Empresa dona da oferta." },
+    { name: "source_product_version_id", type: "Integer", description: "Versao que dispara a oferta." },
+    { name: "offered_product_version_id", type: "Integer", description: "Versao sugerida como addon." },
+    { name: "courtesy_product_version_id", type: "Integer", description: "Versao gratuita, quando houver cortesia." },
+    { name: "priority", type: "Integer", description: "Ordem de exibicao da oferta." },
+    { name: "active", type: "Boolean", description: "Indica se a oferta esta habilitada." },
+    { name: "valid_from", type: "Timestamp", description: "Inicio da vigencia da oferta." },
+    { name: "valid_to", type: "Timestamp", description: "Fim da vigencia da oferta. Null enquanto a oferta estiver ativa." },
+    { name: "created_at", type: "Timestamp", description: "Data de criacao." },
+    { name: "updated_at", type: "Timestamp", description: "Data da ultima atualizacao." }
+  ],
   PRODUCT: [
     { name: "id", type: "Integer", description: "Identificador da linha." },
     { name: "company_id", type: "Integer", description: "Empresa dona do produto." },
@@ -788,6 +917,19 @@ const entityAttributes = {
     { name: "access_months", type: "Integer", description: "Periodo base congelado." },
     { name: "bonus_months", type: "Integer", description: "Bonus congelado." },
     { name: "total_access_months", type: "Integer", description: "Prazo final entregue." },
+    { name: "created_at", type: "Timestamp", description: "Data de criacao." },
+    { name: "updated_at", type: "Timestamp", description: "Data da ultima atualizacao." }
+  ],
+  CART_OFFER: [
+    { name: "id", type: "Integer", description: "Identificador da linha." },
+    { name: "cart_id", type: "Integer", description: "Carrinho da oferta." },
+    { name: "checkout_offer_id", type: "Integer", description: "Oferta configurada usada no checkout." },
+    { name: "source_cart_item_id", type: "Integer", description: "Item base que disparou a oferta." },
+    { name: "status", type: "Varchar", description: "Estado da selecao da oferta.", values: "OFFERED | SELECTED | DECLINED | EXPIRED" },
+    { name: "selected_cart_item_id", type: "Integer", description: "Item addon criado quando a oferta e aceita." },
+    { name: "courtesy_cart_item_id", type: "Integer", description: "Item gratuito criado quando a oferta inclui cortesia." },
+    { name: "selected_at", type: "Timestamp", description: "Timestamp da aceitacao da oferta." },
+    { name: "declined_at", type: "Timestamp", description: "Timestamp da recusa da oferta." },
     { name: "created_at", type: "Timestamp", description: "Data de criacao." },
     { name: "updated_at", type: "Timestamp", description: "Data da ultima atualizacao." }
   ],
