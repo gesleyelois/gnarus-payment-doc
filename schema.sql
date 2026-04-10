@@ -1,15 +1,46 @@
 -- gnarus-payment-doc
--- Versao 1: produto, versao comercial, segmento comercial, carrinho/checkout e pagamento
+-- Versao 1: empresa, unidade de negocio, produto, versao comercial, carrinho/checkout e pagamento
 -- A modelagem deve crescer de forma incremental, sem antecipar regras que ainda nao existem.
+
+CREATE TABLE company (
+  id INTEGER PRIMARY KEY,
+  code VARCHAR(100) NOT NULL UNIQUE,
+  name VARCHAR(255) NOT NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP
+);
+
+CREATE TABLE business_unit (
+  id INTEGER PRIMARY KEY,
+  company_id INTEGER NOT NULL,
+  code VARCHAR(100) NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP,
+  CONSTRAINT fk_business_unit_company
+    FOREIGN KEY (company_id) REFERENCES company(id),
+  CONSTRAINT uk_business_unit_company_code
+    UNIQUE (company_id, code)
+);
 
 CREATE TABLE product (
   id INTEGER PRIMARY KEY,
-  sku VARCHAR(100) NOT NULL UNIQUE,
+  company_id INTEGER NOT NULL,
+  business_unit_id INTEGER,
+  sku VARCHAR(100) NOT NULL, -- unique within company
   name VARCHAR(255) NOT NULL,
   description VARCHAR(500),
   status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
   created_at TIMESTAMP,
-  updated_at TIMESTAMP
+  updated_at TIMESTAMP,
+  CONSTRAINT fk_product_company
+    FOREIGN KEY (company_id) REFERENCES company(id),
+  CONSTRAINT fk_product_business_unit
+    FOREIGN KEY (business_unit_id) REFERENCES business_unit(id),
+  CONSTRAINT uk_product_company_sku
+    UNIQUE (company_id, sku)
 );
 
 CREATE TABLE product_version (
@@ -31,6 +62,8 @@ CREATE TABLE product_version (
 
 CREATE TABLE cart (
   id INTEGER PRIMARY KEY,
+  company_id INTEGER NOT NULL,
+  business_unit_id INTEGER,
   buyer_reference VARCHAR(100) NOT NULL,
   commercial_segment VARCHAR(20) NOT NULL DEFAULT 'B2C',
   status VARCHAR(50) NOT NULL DEFAULT 'DRAFT',
@@ -40,7 +73,11 @@ CREATE TABLE cart (
   total_amount DECIMAL(12, 2) NOT NULL DEFAULT 0,
   expires_at TIMESTAMP,
   created_at TIMESTAMP,
-  updated_at TIMESTAMP
+  updated_at TIMESTAMP,
+  CONSTRAINT fk_cart_company
+    FOREIGN KEY (company_id) REFERENCES company(id),
+  CONSTRAINT fk_cart_business_unit
+    FOREIGN KEY (business_unit_id) REFERENCES business_unit(id)
 );
 
 CREATE TABLE cart_item (
@@ -63,19 +100,26 @@ CREATE TABLE cart_item (
 
 CREATE TABLE payment_method (
   id INTEGER PRIMARY KEY,
-  code VARCHAR(50) NOT NULL UNIQUE,
+  company_id INTEGER NOT NULL,
+  code VARCHAR(50) NOT NULL, -- unique within company
   name VARCHAR(100) NOT NULL,
   provider VARCHAR(100) NOT NULL,
   active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMP,
-  updated_at TIMESTAMP
+  updated_at TIMESTAMP,
+  CONSTRAINT fk_payment_method_company
+    FOREIGN KEY (company_id) REFERENCES company(id),
+  CONSTRAINT uk_payment_method_company_code
+    UNIQUE (company_id, code)
 );
 
--- Rules resolve in this order: product override, segment, then global fallback.
+-- Rules resolve in this order: product override, business unit, segment, then global fallback.
 CREATE TABLE payment_method_rule (
   id INTEGER PRIMARY KEY,
-  scope VARCHAR(20) NOT NULL DEFAULT 'SEGMENT',
+  company_id INTEGER NOT NULL,
+  scope VARCHAR(20) NOT NULL DEFAULT 'SEGMENT', -- GLOBAL, SEGMENT, BUSINESS_UNIT, PRODUCT
   product_id INTEGER,
+  business_unit_id INTEGER,
   commercial_segment VARCHAR(20),
   payment_method_id INTEGER NOT NULL,
   priority INTEGER NOT NULL DEFAULT 100, -- lower values first within the same scope
@@ -84,8 +128,12 @@ CREATE TABLE payment_method_rule (
   valid_to TIMESTAMP,
   created_at TIMESTAMP,
   updated_at TIMESTAMP,
+  CONSTRAINT fk_payment_method_rule_company
+    FOREIGN KEY (company_id) REFERENCES company(id),
   CONSTRAINT fk_payment_method_rule_product
     FOREIGN KEY (product_id) REFERENCES product(id),
+  CONSTRAINT fk_payment_method_rule_business_unit
+    FOREIGN KEY (business_unit_id) REFERENCES business_unit(id),
   CONSTRAINT fk_payment_method_rule_payment_method
     FOREIGN KEY (payment_method_id) REFERENCES payment_method(id)
 );

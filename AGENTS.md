@@ -22,16 +22,20 @@ Este projeto documenta uma modelagem incremental de pagamentos.
 - documentar estados com tabela de transicao e diagrama de ciclo na secao correspondente
 - na v1, `PENDING` cobre a espera da resposta; sucesso do pagamento e `APPROVED`; `CAPTURED` fica para evolucao posterior se houver separacao entre aprovacao e captura
 - em `cart_payment`, `authorization_code` guarda o codigo de aprovacao quando existir, `failure_code` guarda o codigo da recusa, `failure_message` guarda a mensagem da recusa, e `approved_at`/`failed_at` sao timestamps mutuamente exclusivos do desfecho da tentativa; em `PENDING`, esses campos ficam nulos
+- `company` define o tenant; `business_unit` e um recorte opcional dentro da empresa
+- `product`, `cart`, `payment_method` e `payment_method_rule` sempre carregam `company_id`
+- `business_unit_id` e opcional em `product`, `cart` e `payment_method_rule`
+- `sku` e `payment_method.code` sao unicos por empresa, nao globais
 - `cart.commercial_segment` define o contexto comercial da venda, com valores como `B2C`, `B2B` e `B2B2C`
-- `payment_method_rule` define a disponibilidade de meios por `scope`; a precedencia e `PRODUCT` acima de `SEGMENT`, acima de `GLOBAL`
+- `payment_method_rule` define a disponibilidade de meios por `scope`; a precedencia e `PRODUCT` acima de `BUSINESS_UNIT`, acima de `SEGMENT`, acima de `GLOBAL`
 - a resolucao de meios nao mescla scopes: primeiro scope com regras ativas vence; dentro do mesmo scope, `priority` menor vem primeiro
-- a resolucao padrao de meios parte do segmento comercial do carrinho, com override por produto apenas quando existir regra especifica
-- exemplos de referencia: `B2B` -> `CARD`; `B2C` -> `PIX`, `NUPAY`, `CARD`, `PAYPAL`; `PRODUCT_I` em `B2C` -> `PIX`, `CARD`
+- a resolucao padrao de meios parte da empresa do carrinho, com override por BU, por segmento ou por produto apenas quando existir regra especifica
+- exemplos de referencia: `B2B` na empresa A -> `CARD`; `B2C` na empresa A -> `PIX`, `NUPAY`, `CARD`, `PAYPAL`; `BU EDU` na empresa A -> `PIX`, `CARD`; `PRODUCT_I` em `B2C` -> `PIX`, `CARD`
 - a pagina de regras deve registrar exemplos de retorno do gateway para `APPROVED` e `FAILED`, mostrando o mapeamento dos campos de `cart_payment`
-- produto e o catalogo base; a variacao de periodo, preco, bonus e vigencia fica em `product_version`
+- produto e o catalogo da empresa; a variacao de periodo, preco, bonus e vigencia fica em `product_version`
 - `sku` e o codigo publico do produto
-- a camada publica resolve o produto por `sku` e exibe apenas a versao vigente daquele `sku`
-- se houver mais de uma versao vigente para o mesmo `sku`, isso e erro de cadastro
+- a camada publica resolve o produto por `sku` dentro da empresa e exibe apenas a versao vigente daquele `sku`
+- se houver mais de uma versao vigente para o mesmo `sku` dentro da mesma empresa, isso e erro de cadastro
 - `valid_to` nulo significa versao comercial ainda vigente, nao versao vitalicia
 - a tela de produto pode listar versoes vigentes; o carrinho sempre exibe o snapshot salvo em `cart_item.product_version_id`
 - nao criar um produto por periodo de acesso; usar versao comercial para 12m, 24m, 36m e ofertas
@@ -39,6 +43,7 @@ Este projeto documenta uma modelagem incremental de pagamentos.
 - `cart_item` deve gravar o snapshot da versao escolhida, incluindo `quantity`, periodo base, bonus, total de acesso e preco unitario
 - `cart_item.access_months` e `cart_item.bonus_months` sao copia dos termos da `product_version` no momento da compra
 - `quantity` costuma ser `1` em assinaturas e pode ser maior em produtos como eventos ou ingressos
+- a pagina principal deve explicar empresa, unidade de negocio, produto, carrinho e pagamento antes de detalhar regras mais especificas
 - fazer commits atomicos, com uma unica mudanca logica por commit
 - usar mensagem no padrao Conventional Commits, com prefixos como `feat:`, `docs:`, `chore:` e similares
 

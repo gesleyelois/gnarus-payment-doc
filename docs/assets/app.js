@@ -1,34 +1,81 @@
 const sections = [
   {
     label: "Base",
-    title: "01. Escopo",
-    copy: `- \`product\`: catalogo base.
-- \`product_version\`: periodo, preco, bonus e historico comercial do mesmo produto.
-- \`cart\`: checkout com segmento comercial, status e totais.
-- \`cart_item\`: snapshot da versao escolhida.
-- \`payment_method\`: meios de pagamento disponiveis.
-- \`payment_method_rule\`: disponibilidade dos meios por segmento ou excecao por produto.
-- \`cart_payment\`: tentativa de pagamento ligada ao carrinho.`,
-    diagram: `erDiagram
-  PRODUCT ||--o{ PRODUCT_VERSION : "1:N"
-  PRODUCT_VERSION ||--o{ CART_ITEM : "1:N"
-  CART ||--o{ CART_ITEM : "1:N"
-  CART ||--o{ CART_PAYMENT : "1:N"
-  PAYMENT_METHOD ||--o{ CART_PAYMENT : "1:N"
-  PRODUCT ||--o{ PAYMENT_METHOD_RULE : "0:N"
-  PAYMENT_METHOD ||--o{ PAYMENT_METHOD_RULE : "1:N"`
-  },
-  {
-    label: "Produto",
-    title: "02. Produto",
-    copy: `Produto e o catalogo base. \`sku\` identifica o produto na camada publica. Periodo, preco, bonus e vigencia ficam em \`product_version\`. \`valid_to\` nulo significa versao vigente, nao versao vitalicia. A tela de produto pode listar a versao vigente resolvida por \`sku\`.`,
+    title: "01. Empresa",
+    copy: `- \`company\` delimita o tenant.
+- \`business_unit\` organiza produtos, carrinhos e regras dentro da empresa.
+- \`product\`, \`cart\`, \`payment_method\` e \`payment_method_rule\` carregam \`company_id\`.
+- \`business_unit_id\` e opcional em produto, carrinho e regra.
+- \`sku\` e \`payment_method.code\` sao unicos por empresa.`,
     tables: [
       {
         title: "Valores controlados",
         columns: ["Campo", "Descricao", "Valores"],
         rows: [
-          ["status", "Disponibilidade do produto.", "ACTIVE | INACTIVE"],
-          ["currency", "Moeda usada nas versoes comerciais.", "BRL"]
+          ["company.status", "Estado da empresa.", "ACTIVE | INACTIVE"],
+          ["business_unit.status", "Estado da unidade de negocio.", "ACTIVE | INACTIVE"]
+        ]
+      },
+      {
+        title: "Identificacao por tenant",
+        columns: ["Campo", "Regra", "Exemplo"],
+        rows: [
+          ["company.code", "Identificador publico da empresa.", "GROUP_A"],
+          ["business_unit.code", "Unico por company.", "EDU"],
+          ["product.sku", "Unico por company.", "PLUS"],
+          ["payment_method.code", "Unico por company.", "PIX"]
+        ]
+      },
+      {
+        title: "Contexto de uso",
+        columns: ["Tabela", "company_id", "business_unit_id", "Leitura"],
+        rows: [
+          ["product", "obrigatorio", "opcional", "Catalogo da empresa."],
+          ["cart", "obrigatorio", "opcional", "Checkout da empresa."],
+          ["payment_method", "obrigatorio", "-", "Meio liberado por empresa."],
+          ["payment_method_rule", "obrigatorio", "opcional", "Regra aplicada dentro da empresa."]
+        ]
+      }
+    ],
+    diagram: `erDiagram
+  COMPANY ||--o{ BUSINESS_UNIT : "1:N"
+  COMPANY ||--o{ PRODUCT : "1:N"
+  BUSINESS_UNIT ||--o{ PRODUCT : "0:N"
+  COMPANY ||--o{ CART : "1:N"
+  BUSINESS_UNIT ||--o{ CART : "0:N"
+  COMPANY ||--o{ PAYMENT_METHOD : "1:N"
+  COMPANY ||--o{ PAYMENT_METHOD_RULE : "1:N"
+  BUSINESS_UNIT ||--o{ PAYMENT_METHOD_RULE : "0:N"
+  PRODUCT ||--o{ PRODUCT_VERSION : "1:N"
+  PRODUCT ||--o{ PAYMENT_METHOD_RULE : "0:N"
+  PAYMENT_METHOD ||--o{ PAYMENT_METHOD_RULE : "1:N"`,
+    sql: `INSERT INTO company (id, code, name, status, created_at, updated_at)
+VALUES
+  (1, 'GROUP_A', 'Grupo A', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+INSERT INTO business_unit (id, company_id, code, name, status, created_at, updated_at)
+VALUES
+  (1, 1, 'EDU', 'Educacao', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`
+  },
+  {
+    label: "Produto",
+    title: "02. Produto",
+    copy: `Produto e o catalogo da empresa. \`company_id\` identifica o tenant e \`business_unit_id\` e opcional. \`sku\` identifica o produto na camada publica dentro da empresa. Periodo, preco, bonus e vigencia ficam em \`product_version\`. \`valid_to\` nulo significa versao vigente, nao versao vitalicia. A tela de produto pode listar a versao vigente resolvida por \`sku\`.`,
+    tables: [
+      {
+        title: "Contexto do produto",
+        columns: ["Campo", "Regra", "Exemplo"],
+        rows: [
+          ["company_id", "Obrigatorio.", "1"],
+          ["business_unit_id", "Opcional.", "NULL"],
+          ["sku", "Unico por company.", "PLUS"]
+        ]
+      },
+      {
+        title: "Valores controlados",
+        columns: ["Campo", "Descricao", "Valores"],
+        rows: [
+          ["status", "Disponibilidade do produto.", "ACTIVE | INACTIVE"]
         ]
       },
       {
@@ -36,7 +83,7 @@ const sections = [
         columns: ["Campo", "Regra", "Exemplo"],
         rows: [
           ["sku", "Codigo publico do produto.", "plus"],
-          ["sku", "Usado para resolver o produto na camada publica.", "/compra/plus"]
+          ["rota publica", "Usa o sku para resolver o produto na camada publica dentro da empresa.", "/compra/plus"]
         ]
       },
       {
@@ -69,13 +116,13 @@ const sections = [
     subsections: [
       {
         title: "Versao comercial",
-        copy: `Cada linha registra uma oferta do mesmo produto. Quando periodo, preco ou bonus mudam, a linha anterior fecha e uma nova linha entra no ar. A versao atual pode ficar com \`valid_to\` nulo ate ser substituida. O \`sku\` resolve o produto, e a camada publica mostra apenas a versao vigente desse \`sku\`.`,
+        copy: `Cada linha registra uma oferta do mesmo produto. Quando periodo, preco ou bonus mudam, a linha anterior fecha e uma nova linha entra no ar. A versao atual pode ficar com \`valid_to\` nulo ate ser substituida. O \`sku\` resolve o produto dentro da empresa, e a camada publica mostra apenas a versao vigente desse \`sku\`.`,
         diagram: `erDiagram
   PRODUCT ||--o{ PRODUCT_VERSION : "1:N"`
       },
       {
         title: "Historico comercial",
-        copy: `A nova oferta nao altera o registro anterior. O historico fica na propria tabela de versao. \`valid_to\` nulo identifica a versao ainda vigente. Se existir mais de uma versao vigente para o mesmo \`sku\`, isso e erro de cadastro.`,
+        copy: `A nova oferta nao altera o registro anterior. O historico fica na propria tabela de versao. \`valid_to\` nulo identifica a versao ainda vigente. Se existir mais de uma versao vigente para o mesmo \`sku\` dentro da empresa, isso e erro de cadastro.`,
         diagram: `flowchart LR
   V1["12m / bonus 0 / BRL 199.90"] --> V2["12m / bonus 2 / BRL 199.90"]
   V2 --> V3["24m / bonus 0 / BRL 349.90"]`,
@@ -89,9 +136,9 @@ VALUES
   (3, 1, 24, 0, 349.90, 'BRL', '2026-01-01', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`
       }
     ],
-    sql: `INSERT INTO product (id, sku, name, description, status, created_at, updated_at)
+    sql: `INSERT INTO product (id, company_id, business_unit_id, sku, name, description, status, created_at, updated_at)
 VALUES
-  (1, 'CURSO-IA', 'Curso de IA aplicado', 'Produto digital principal', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+  (1, 1, 1, 'CURSO-IA', 'Curso de IA aplicado', 'Produto digital principal', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 INSERT INTO product_version (id, product_id, access_months, bonus_months, price_amount, currency, valid_from, valid_to, created_at, updated_at)
 VALUES
@@ -102,8 +149,16 @@ VALUES
   {
     label: "Carrinho",
     title: "03. Carrinho",
-    copy: `O carrinho guarda o snapshot da versao escolhida. \`access_months\` e \`bonus_months\` repetem os termos da oferta no momento da compra. \`quantity\` indica quantas unidades daquela linha foram compradas. \`commercial_segment\` define o contexto da venda, como B2C ou B2B. Ao reabrir o carrinho, a interface usa \`cart_item.product_version_id\`, nao \`product_id\`.`,
+    copy: `O carrinho guarda o snapshot da versao escolhida dentro da empresa. \`company_id\` identifica o tenant e \`business_unit_id\` carrega o recorte da venda quando existir. \`access_months\` e \`bonus_months\` repetem os termos da oferta no momento da compra. \`quantity\` indica quantas unidades daquela linha foram compradas. \`commercial_segment\` define o contexto da venda, como B2C ou B2B. Ao reabrir o carrinho, a interface usa \`cart_item.product_version_id\`, nao \`product_id\`.`,
     tables: [
+      {
+        title: "Contexto da venda",
+        columns: ["Campo", "Regra", "Uso"],
+        rows: [
+          ["company_id", "Obrigatorio.", "Empresa dona do checkout."],
+          ["business_unit_id", "Opcional.", "Unidade de negocio da venda."]
+        ]
+      },
       {
         title: "Valores controlados",
         columns: ["Campo", "Descricao", "Valores"],
@@ -191,9 +246,9 @@ VALUES
   P->>C: marca COMPLETED`
       }
     ],
-    sql: `INSERT INTO cart (id, buyer_reference, commercial_segment, status, currency, subtotal_amount, discount_amount, total_amount, expires_at, created_at, updated_at)
+    sql: `INSERT INTO cart (id, company_id, business_unit_id, buyer_reference, commercial_segment, status, currency, subtotal_amount, discount_amount, total_amount, expires_at, created_at, updated_at)
 VALUES
-  (1, 'BUYER-1001', 'B2C', 'DRAFT', 'BRL', 199.90, 0.00, 199.90, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+  (1, 1, 1, 'BUYER-1001', 'B2C', 'DRAFT', 'BRL', 199.90, 0.00, 199.90, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 INSERT INTO cart_item (id, cart_id, product_version_id, quantity, unit_price, total_price, access_months, bonus_months, total_access_months, created_at, updated_at)
 VALUES
@@ -202,7 +257,7 @@ VALUES
   {
     label: "Pagamento",
     title: "04. Pagamento",
-    copy: `A tentativa entra em PENDING. A disponibilidade dos meios vem de payment_method_rule, com regra por produto, por segmento comercial ou global. Cartao aprova ou recusa na hora. PIX, NuPay e PayPal podem confirmar depois; enquanto isso, a linha permanece em PENDING.`,
+    copy: `A tentativa entra em PENDING dentro da empresa. A disponibilidade dos meios vem de payment_method_rule, com regra por produto, por BU, por segmento comercial ou global. Cartao aprova ou recusa na hora. PIX, NuPay e PayPal podem confirmar depois; enquanto isso, a linha permanece em PENDING.`,
     tables: [
       {
         title: "Valores controlados",
@@ -210,7 +265,7 @@ VALUES
         rows: [
           ["status", "Estado da tentativa.", "PENDING | APPROVED | FAILED"],
           ["payment_method.code", "Codigo do meio de pagamento.", "PIX | CARD | PAYPAL | NUPAY"],
-          ["payment_method_rule.scope", "Nivel da regra.", "GLOBAL | SEGMENT | PRODUCT"]
+          ["payment_method_rule.scope", "Nivel da regra.", "GLOBAL | SEGMENT | BUSINESS_UNIT | PRODUCT"]
         ]
       },
       {
@@ -230,6 +285,7 @@ VALUES
         columns: ["Nivel", "Fonte", "Uso"],
         rows: [
           ["PRODUCT", "payment_method_rule.scope = PRODUCT", "Override para um produto especifico."],
+          ["BUSINESS_UNIT", "payment_method_rule.scope = BUSINESS_UNIT", "Regra para uma unidade de negocio da empresa."],
           ["SEGMENT", "payment_method_rule.scope = SEGMENT", "Regra padrao para B2C, B2B ou B2B2C."],
           ["GLOBAL", "payment_method_rule.scope = GLOBAL", "Fallback quando nao houver regra mais especifica."]
         ]
@@ -259,19 +315,25 @@ VALUES
   FAILED --> [*]`
       }
     ],
-    sql: `INSERT INTO payment_method (id, code, name, provider, active, created_at, updated_at)
+    sql: `INSERT INTO payment_method (id, company_id, code, name, provider, active, created_at, updated_at)
 VALUES
-  (1, 'PIX', 'Pix', 'BRADESCO', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  (2, 'CARD', 'Cartao de credito', 'STRIPE', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  (3, 'PAYPAL', 'PayPal', 'PAYPAL', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  (4, 'NUPAY', 'NuPay', 'NUBANK', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+  (1, 1, 'PIX', 'Pix', 'BRADESCO', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (2, 1, 'CARD', 'Cartao de credito', 'STRIPE', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (3, 1, 'PAYPAL', 'PayPal', 'PAYPAL', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (4, 1, 'NUPAY', 'NuPay', 'NUBANK', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
-INSERT INTO payment_method_rule (id, scope, product_id, commercial_segment, payment_method_id, priority, active, valid_from, valid_to, created_at, updated_at)
+INSERT INTO payment_method_rule (id, company_id, scope, product_id, business_unit_id, commercial_segment, payment_method_id, priority, active, valid_from, valid_to, created_at, updated_at)
 VALUES
-  (1, 'GLOBAL', NULL, NULL, 2, 100, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  (2, 'SEGMENT', NULL, 'B2C', 1, 10, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  (3, 'SEGMENT', NULL, 'B2C', 2, 20, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  (4, 'PRODUCT', 1, NULL, 1, 1, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+  (1, 1, 'GLOBAL', NULL, NULL, NULL, 2, 100, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (2, 1, 'SEGMENT', NULL, NULL, 'B2B', 2, 10, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (3, 1, 'SEGMENT', NULL, NULL, 'B2C', 1, 10, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (4, 1, 'SEGMENT', NULL, NULL, 'B2C', 4, 20, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (5, 1, 'SEGMENT', NULL, NULL, 'B2C', 2, 30, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (6, 1, 'SEGMENT', NULL, NULL, 'B2C', 3, 40, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (7, 1, 'BUSINESS_UNIT', NULL, 1, NULL, 1, 5, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (8, 1, 'BUSINESS_UNIT', NULL, 1, NULL, 2, 10, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (9, 1, 'PRODUCT', 1, NULL, NULL, 1, 1, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (10, 1, 'PRODUCT', 1, NULL, NULL, 2, 2, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 INSERT INTO cart_payment (id, cart_id, payment_method_id, amount, status, provider_reference, authorization_code, failure_code, failure_message, approved_at, failed_at, created_at, updated_at)
 VALUES
@@ -280,8 +342,18 @@ VALUES
   {
     page: "regras",
     title: "Regras",
-    copy: `Resolucao publica do catalogo e do checkout. A pagina publica resolve o produto por \`sku\`; o carrinho mostra o snapshot salvo em \`cart_item.product_version_id\`.`,
+    copy: `Resolucao publica do catalogo e do checkout dentro da empresa. A pagina publica resolve o produto por \`sku\`; o carrinho mostra o snapshot salvo em \`cart_item.product_version_id\`.`,
     tables: [
+      {
+        title: "Escopo da empresa",
+        columns: ["Campo", "Regra", "Uso"],
+        rows: [
+          ["company_id", "Obrigatorio em product, cart, payment_method e payment_method_rule.", "Limita a consulta ao tenant."],
+          ["business_unit_id", "Opcional em product, cart e payment_method_rule.", "Recorte interno da empresa."],
+          ["sku", "Unico por company.", "Resolve a vitrine publica."],
+          ["payment_method.code", "Unico por company.", "Resolve o meio dentro da empresa."]
+        ]
+      },
       {
         title: "Resolucao publica",
         columns: ["Regra", "Fonte", "Resultado"],
@@ -295,6 +367,8 @@ VALUES
         title: "Origem dos campos do carrinho",
         columns: ["Campo", "Fonte", "Regra"],
         rows: [
+          ["company_id", "empresa do checkout", "Identifica o tenant."],
+          ["business_unit_id", "BU da venda, quando houver", "Recorte interno da empresa."],
           ["buyer_reference", "sessao, token ou customer futuro", "Identifica o dono do checkout."],
           ["subtotal_amount", "soma de cart_item.total_price", "Resumo dos itens."],
           ["discount_amount", "cupom ou campanha futura", "Zero na v1."],
@@ -303,22 +377,23 @@ VALUES
       }
     ],
     diagram: `flowchart LR
-  SKU[sku] --> PRODUCT[product]
+  COMPANY[company] --> SKU[sku]
+  SKU --> PRODUCT[product]
   PRODUCT --> VERSION[product_version vigente]
   VERSION --> ITEM[cart_item snapshot]
   ITEM --> CART[cart totals]`,
     contentBlocks: [
       {
         title: "Fluxo do checkout",
-        copy: `O carrinho abre com um snapshot do item. Depois da selecao do meio de pagamento, a tentativa entra em \`PENDING\`. Se a resposta vier com sucesso, o carrinho fecha em \`COMPLETED\`. Se falhar, o checkout continua aberto para nova tentativa.`,
+        copy: `O carrinho abre no contexto da empresa. Se houver BU, o carrinho carrega esse recorte. Depois da selecao do meio de pagamento, a tentativa entra em \`PENDING\`. Se a resposta vier com sucesso, o carrinho fecha em \`COMPLETED\`. Se falhar, o checkout continua aberto para nova tentativa.`,
         tables: [
           {
             title: "Passos do checkout",
             columns: ["Passo", "cart", "cart_item", "cart_payment", "Leitura"],
             rows: [
               ["Abertura", "DRAFT", "Snapshot carregado", "-", "Carrinho reaberto com a versao salva."],
-              ["Item definido", "DRAFT", "Snapshot congelado", "-", "Produto resolvido por sku."],
-              ["Meio escolhido", "CHECKOUT", "Sem alteracao", "PENDING", "Tentativa criada."],
+              ["Item definido", "DRAFT", "Snapshot congelado", "-", "Produto resolvido por sku dentro da empresa."],
+              ["Meio escolhido", "CHECKOUT", "Sem alteracao", "PENDING", "Tentativa criada no contexto da empresa."],
               ["Resposta positiva", "COMPLETED", "Sem alteracao", "APPROVED", "Compra concluida."],
               ["Resposta negativa", "CHECKOUT", "Sem alteracao", "FAILED", "Nova tentativa permitida."]
             ]
@@ -340,7 +415,7 @@ VALUES
       },
       {
         title: "Fluxo do pagamento",
-        copy: `Cartao costuma aprovar ou recusar na hora. Pix, NuPay e PayPal podem responder depois; enquanto isso, a tentativa continua em \`PENDING\`.`,
+        copy: `Cartao costuma aprovar ou recusar na hora. Pix, NuPay e PayPal podem responder depois; enquanto isso, a tentativa continua em \`PENDING\`. A lista de meios segue as regras da empresa e pode ser restrita por BU, segmento ou produto.`,
         tables: [
           {
             title: "Estados da tentativa",
@@ -381,13 +456,13 @@ VALUES
       },
       {
         title: "Resolucao dos meios de pagamento",
-        copy: `A lista de meios parte do segmento comercial do carrinho. Regras por produto entram como excecao. A resolucao nao mescla niveis: o primeiro scope com regras ativas vence. Dentro do mesmo scope, \`priority\` ordena do menor para o maior.`,
+        copy: `A lista de meios parte da empresa do carrinho. Regras por produto e por BU entram como excecao. A resolucao nao mescla niveis: o primeiro scope com regras ativas vence. Dentro do mesmo scope, \`priority\` ordena do menor para o maior.`,
         tables: [
           {
             title: "Precedencia",
             columns: ["Chave", "Leitura", "Uso"],
             rows: [
-              ["scope", "PRODUCT > SEGMENT > GLOBAL", "Primeiro nivel com regras ativas vence."],
+              ["scope", "PRODUCT > BUSINESS_UNIT > SEGMENT > GLOBAL", "Primeiro nivel com regras ativas vence."],
               ["priority", "menor valor primeiro", "Ordena os meios dentro do mesmo nivel."]
             ]
           },
@@ -395,27 +470,46 @@ VALUES
             title: "Exemplos de prioridade",
             columns: ["Cenario", "Regras que batem", "Ordem final"],
             rows: [
-              ["B2B", "SEGMENT:B2B com CARD(10)", "CARD"],
-              ["B2C", "SEGMENT:B2C com PIX(10), NUPAY(20), CARD(30), PAYPAL(40)", "PIX, NUPAY, CARD, PAYPAL"],
+              ["B2B na empresa A", "SEGMENT:B2B com CARD(10)", "CARD"],
+              ["B2C na empresa A", "SEGMENT:B2C com PIX(10), NUPAY(20), CARD(30), PAYPAL(40)", "PIX, NUPAY, CARD, PAYPAL"],
+              ["BU EDU na empresa A", "BUSINESS_UNIT:EDU com PIX(5), CARD(10)", "PIX, CARD"],
               ["PRODUCT_I em B2C", "PRODUCT: PRODUCT_I com PIX(1), CARD(2)", "PIX, CARD"],
               ["Fallback global", "GLOBAL com CARD(100)", "CARD"]
             ]
           }
         ],
         diagram: `flowchart LR
-  CART[cart.commercial_segment] --> RULE[payment_method_rule]
+  COMPANY[company] --> CART[cart.commercial_segment]
+  CART --> RULE[payment_method_rule]
   PRODUCT[product opcional] --> RULE
   RULE --> METHOD[payment_method]`,
-        sql: `INSERT INTO payment_method_rule (id, scope, product_id, commercial_segment, payment_method_id, priority, active, valid_from, valid_to, created_at, updated_at)
+        sql: `INSERT INTO company (id, code, name, status, created_at, updated_at)
 VALUES
-  (1, 'GLOBAL', NULL, NULL, 2, 100, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  (2, 'SEGMENT', NULL, 'B2B', 2, 10, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  (3, 'SEGMENT', NULL, 'B2C', 1, 10, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  (4, 'SEGMENT', NULL, 'B2C', 4, 20, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  (5, 'SEGMENT', NULL, 'B2C', 2, 30, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  (6, 'SEGMENT', NULL, 'B2C', 3, 40, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  (7, 'PRODUCT', 1, NULL, 1, 1, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  (8, 'PRODUCT', 1, NULL, 2, 2, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`
+  (1, 'GROUP_A', 'Grupo A', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+INSERT INTO business_unit (id, company_id, code, name, status, created_at, updated_at)
+VALUES
+  (1, 1, 'EDU', 'Educacao', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+INSERT INTO payment_method (id, company_id, code, name, provider, active, created_at, updated_at)
+VALUES
+  (1, 1, 'PIX', 'Pix', 'BRADESCO', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (2, 1, 'CARD', 'Cartao de credito', 'STRIPE', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (3, 1, 'PAYPAL', 'PayPal', 'PAYPAL', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (4, 1, 'NUPAY', 'NuPay', 'NUBANK', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+INSERT INTO payment_method_rule (id, company_id, scope, product_id, business_unit_id, commercial_segment, payment_method_id, priority, active, valid_from, valid_to, created_at, updated_at)
+VALUES
+  (1, 1, 'GLOBAL', NULL, NULL, NULL, 2, 100, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (2, 1, 'SEGMENT', NULL, NULL, 'B2B', 2, 10, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (3, 1, 'SEGMENT', NULL, NULL, 'B2C', 1, 10, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (4, 1, 'SEGMENT', NULL, NULL, 'B2C', 4, 20, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (5, 1, 'SEGMENT', NULL, NULL, 'B2C', 2, 30, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (6, 1, 'SEGMENT', NULL, NULL, 'B2C', 3, 40, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (7, 1, 'BUSINESS_UNIT', NULL, 1, NULL, 1, 5, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (8, 1, 'BUSINESS_UNIT', NULL, 1, NULL, 2, 10, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (9, 1, 'PRODUCT', 1, NULL, NULL, 1, 1, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (10, 1, 'PRODUCT', 1, NULL, NULL, 2, 2, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`
       }
     ]
   },
@@ -446,9 +540,28 @@ const pageSections = {
 };
 
 const entityAttributes = {
+  COMPANY: [
+    { name: "id", type: "Integer", description: "Identificador da linha." },
+    { name: "code", type: "Varchar", description: "Codigo publico da empresa." },
+    { name: "name", type: "Varchar", description: "Nome da empresa." },
+    { name: "status", type: "Varchar", description: "Disponibilidade da empresa.", values: "ACTIVE | INACTIVE" },
+    { name: "created_at", type: "Timestamp", description: "Data de criacao." },
+    { name: "updated_at", type: "Timestamp", description: "Data da ultima atualizacao." }
+  ],
+  BUSINESS_UNIT: [
+    { name: "id", type: "Integer", description: "Identificador da linha." },
+    { name: "company_id", type: "Integer", description: "Empresa dona da unidade de negocio." },
+    { name: "code", type: "Varchar", description: "Codigo da unidade dentro da empresa." },
+    { name: "name", type: "Varchar", description: "Nome da unidade de negocio." },
+    { name: "status", type: "Varchar", description: "Disponibilidade da unidade.", values: "ACTIVE | INACTIVE" },
+    { name: "created_at", type: "Timestamp", description: "Data de criacao." },
+    { name: "updated_at", type: "Timestamp", description: "Data da ultima atualizacao." }
+  ],
   PRODUCT: [
     { name: "id", type: "Integer", description: "Identificador da linha." },
-    { name: "sku", type: "Varchar", description: "SKU unico do produto." },
+    { name: "company_id", type: "Integer", description: "Empresa dona do produto." },
+    { name: "business_unit_id", type: "Integer", description: "Unidade de negocio do produto, quando houver." },
+    { name: "sku", type: "Varchar", description: "SKU unico do produto dentro da empresa." },
     { name: "name", type: "Varchar", description: "Nome comercial." },
     { name: "description", type: "Varchar", description: "Descricao opcional." },
     { name: "status", type: "Varchar", description: "Disponibilidade do produto.", values: "ACTIVE | INACTIVE" },
@@ -469,6 +582,8 @@ const entityAttributes = {
   ],
   CART: [
     { name: "id", type: "Integer", description: "Identificador da linha." },
+    { name: "company_id", type: "Integer", description: "Empresa dona do carrinho." },
+    { name: "business_unit_id", type: "Integer", description: "Unidade de negocio da venda, quando houver." },
     { name: "buyer_reference", type: "Varchar", description: "Referencia do comprador." },
     { name: "commercial_segment", type: "Varchar", description: "Segmento comercial da venda.", values: "B2C | B2B | B2B2C" },
     { name: "status", type: "Varchar", description: "Estado do checkout.", values: "DRAFT | CHECKOUT | COMPLETED | CANCELED | EXPIRED" },
@@ -495,7 +610,8 @@ const entityAttributes = {
   ],
   PAYMENT_METHOD: [
     { name: "id", type: "Integer", description: "Identificador da linha." },
-    { name: "code", type: "Varchar", description: "Codigo do meio de pagamento.", values: "PIX | CARD | PAYPAL | NUPAY" },
+    { name: "company_id", type: "Integer", description: "Empresa dona do meio." },
+    { name: "code", type: "Varchar", description: "Codigo do meio de pagamento dentro da empresa.", values: "PIX | CARD | PAYPAL | NUPAY" },
     { name: "name", type: "Varchar", description: "Nome exibido." },
     { name: "provider", type: "Varchar", description: "Gateway ou adquirente." },
     { name: "active", type: "Boolean", description: "Indica se o meio esta habilitado." },
@@ -504,8 +620,10 @@ const entityAttributes = {
   ],
   PAYMENT_METHOD_RULE: [
     { name: "id", type: "Integer", description: "Identificador da linha." },
-    { name: "scope", type: "Varchar", description: "Nivel da regra.", values: "GLOBAL | SEGMENT | PRODUCT" },
+    { name: "company_id", type: "Integer", description: "Empresa dona da regra." },
+    { name: "scope", type: "Varchar", description: "Nivel da regra.", values: "GLOBAL | SEGMENT | BUSINESS_UNIT | PRODUCT" },
     { name: "product_id", type: "Integer", description: "Produto da excecao, quando houver." },
+    { name: "business_unit_id", type: "Integer", description: "Unidade de negocio da regra, quando houver." },
     { name: "commercial_segment", type: "Varchar", description: "Segmento da regra, quando houver.", values: "B2C | B2B | B2B2C" },
     { name: "payment_method_id", type: "Integer", description: "Meio liberado pela regra." },
     { name: "priority", type: "Integer", description: "Ordem de precedencia da regra." },
