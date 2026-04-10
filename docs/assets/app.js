@@ -267,23 +267,76 @@ VALUES
           ["discount_amount", "cupom ou campanha futura", "Zero na v1."],
           ["total_amount", "subtotal_amount - discount_amount", "Total cobrado."]
         ]
-      },
-      {
-        title: "Leitura do carrinho",
-        columns: ["Cenario", "Estado", "Leitura"],
-        rows: [
-          ["abertura", "DRAFT", "Carrinho criado ou reaberto."],
-          ["selecao", "CHECKOUT", "Item definido e pagamento disponivel."],
-          ["sucesso", "COMPLETED", "Pagamento aprovado."],
-          ["falha", "CHECKOUT", "Nova tentativa permitida."]
-        ]
       }
     ],
     diagram: `flowchart LR
   SKU[sku] --> PRODUCT[product]
   PRODUCT --> VERSION[product_version vigente]
   VERSION --> ITEM[cart_item snapshot]
-  ITEM --> CART[cart totals]`
+  ITEM --> CART[cart totals]`,
+    contentBlocks: [
+      {
+        title: "Fluxo do checkout",
+        copy: `O carrinho abre com um snapshot do item. Depois da selecao do meio de pagamento, a tentativa entra em \`PENDING\`. Se a resposta vier com sucesso, o carrinho fecha em \`COMPLETED\`. Se falhar, o checkout continua aberto para nova tentativa.`,
+        tables: [
+          {
+            title: "Passos do checkout",
+            columns: ["Passo", "cart", "cart_item", "cart_payment", "Leitura"],
+            rows: [
+              ["Abertura", "DRAFT", "Snapshot carregado", "-", "Carrinho reaberto com a versao salva."],
+              ["Item definido", "DRAFT", "Snapshot congelado", "-", "Produto resolvido por sku."],
+              ["Meio escolhido", "CHECKOUT", "Sem alteracao", "PENDING", "Tentativa criada."],
+              ["Resposta positiva", "COMPLETED", "Sem alteracao", "APPROVED", "Compra concluida."],
+              ["Resposta negativa", "CHECKOUT", "Sem alteracao", "FAILED", "Nova tentativa permitida."]
+            ]
+          }
+        ],
+        diagram: `sequenceDiagram
+  participant U as Usuario
+  participant C as cart
+  participant I as cart_item
+  participant P as cart_payment
+  participant G as Gateway
+
+  U->>C: abre carrinho
+  C-->>U: cart DRAFT + item salvo
+  U->>C: escolhe meio de pagamento
+  C->>P: cria cart_payment PENDING
+  G-->>P: APPROVED ou FAILED
+  P->>C: atualiza status do checkout`
+      },
+      {
+        title: "Fluxo do pagamento",
+        copy: `Cartao costuma aprovar ou recusar na hora. Pix, NuPay e PayPal podem responder depois; enquanto isso, a tentativa continua em \`PENDING\`.`,
+        tables: [
+          {
+            title: "Estados da tentativa",
+            columns: ["Estado", "Leitura", "Efeito"],
+            rows: [
+              ["PENDING", "Aguardando resposta", "Checkout segue aberto."],
+              ["APPROVED", "Pagamento aceito", "cart.status = COMPLETED."],
+              ["FAILED", "Pagamento recusado", "Nova tentativa pode ser criada."]
+            ]
+          },
+          {
+            title: "Cenarios por meio",
+            columns: ["Meio", "Tempo", "Estado inicial", "Estado final"],
+            rows: [
+              ["CARD", "Sincrono", "PENDING", "APPROVED ou FAILED"],
+              ["PIX", "Assincrono", "PENDING", "APPROVED ou FAILED"],
+              ["NUPAY", "Assincrono", "PENDING", "APPROVED ou FAILED"],
+              ["PAYPAL", "Assincrono", "PENDING", "APPROVED ou FAILED"]
+            ]
+          }
+        ],
+        diagram: `stateDiagram-v2
+  [*] --> PENDING
+  PENDING --> APPROVED: aprovacao
+  PENDING --> FAILED: recusa
+  APPROVED --> [*]
+  FAILED --> [*]`
+      }
+    ]
   },
   {
     label: "Evolucao",
@@ -445,6 +498,31 @@ const renderTables = (tables = [], spacingClass = "mt-6") =>
     )
     .join("");
 
+const renderContentBlock = (block, { spacingClass = "mt-6" } = {}) => `
+  <div class="doc-flow-block ${spacingClass}">
+    ${block.label ? `<p class="doc-flow-label">${escapeHtml(block.label)}</p>` : ""}
+    ${block.title ? `<h3 class="doc-flow-title">${escapeHtml(block.title)}</h3>` : ""}
+    ${block.copy ? `<div class="markdown-view mt-4">${renderMarkdown(block.copy)}</div>` : ""}
+    ${block.tables ? renderTables(block.tables, "mt-4") : ""}
+    ${block.diagram
+      ? `
+        <div class="diagram-wrap mt-6">
+          <p class="diagram-hint">Passe o mouse sobre uma entidade para ver os campos e descricoes.</p>
+          <pre class="mermaid">${escapeHtml(block.diagram)}</pre>
+        </div>
+      `
+      : ""}
+    ${block.sql
+      ? `
+        <details class="sql-example mt-6">
+          <summary>Exemplo SQL</summary>
+          <pre><code class="language-sql">${escapeHtml(block.sql)}</code></pre>
+        </details>
+      `
+      : ""}
+  </div>
+`;
+
 const renderBlock = (block, { subsection = false } = {}) => {
   const tag = subsection ? "article" : "section";
   const blockClass = subsection ? "doc-subsection" : "doc-section";
@@ -476,6 +554,7 @@ const renderBlock = (block, { subsection = false } = {}) => {
           </details>
         `
         : ""}
+      ${block.contentBlocks && block.contentBlocks.length ? `<div class="doc-flow-blocks">${block.contentBlocks.map((contentBlock) => renderContentBlock(contentBlock)).join("")}</div>` : ""}
       ${block.subsections && block.subsections.length ? `<div class="doc-subsections">${block.subsections.map((subsectionBlock) => renderBlock(subsectionBlock, { subsection: true })).join("")}</div>` : ""}
     </${tag}>
   `;

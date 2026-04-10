@@ -370,6 +370,43 @@ body::before {
   margin-top: 0.85rem;
 }
 
+.doc-flow-blocks {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.doc-flow-block {
+  border-radius: 1.25rem;
+  border: 1px solid rgba(215, 225, 237, 0.95);
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.92), rgba(255, 255, 255, 0.96));
+  padding: 1.15rem 1.15rem 1.05rem;
+}
+
+.doc-flow-label {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.doc-flow-title {
+  margin: 0.35rem 0 0;
+  font-size: 1.15rem;
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.doc-flow-block .markdown-view p {
+  margin-bottom: 0.85rem;
+  font-size: 0.96rem;
+  line-height: 1.75;
+}
+
 .markdown-view {
   color: var(--muted-strong);
 }

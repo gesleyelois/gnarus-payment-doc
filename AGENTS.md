@@ -17,7 +17,7 @@ Este projeto documenta uma modelagem incremental de pagamentos.
 - evitar frases de contextualizacao do tipo "esta versao cobre" ou "a modelagem cresce"
 - documentar campos com valores controlados na secao correspondente, com tabela objetiva de descricao e valores
 - ilustrar o fluxo com diagramas nas secoes correspondentes de carrinho e pagamento; quando o fluxo cruzar mais de uma entidade, usar uma pagina top-level propria e mostrar as tabelas afetadas e o relacionamento em cada passo
-- regras de negocio e fluxos que cruzam produto, carrinho e pagamento devem ficar em uma pagina top-level propria, nao como subsecao escondida na pagina principal
+- regras de negocio e fluxos que cruzam produto, carrinho e pagamento devem ficar em uma pagina top-level propria, nao como subsecao escondida na pagina principal; os fluxos devem aparecer de forma visivel na propria pagina
 - documentar estados com tabela de transicao e diagrama de ciclo na secao correspondente
 - na v1, `PENDING` cobre a espera da resposta; sucesso do pagamento e `APPROVED`; `CAPTURED` fica para evolucao posterior se houver separacao entre aprovacao e captura
 - produto e o catalogo base; a variacao de periodo, preco, bonus e vigencia fica em `product_version`
