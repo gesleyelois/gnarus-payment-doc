@@ -24,7 +24,9 @@ Este projeto documenta uma modelagem incremental de pagamentos.
 - em `cart_payment`, `authorization_code` guarda o codigo de aprovacao quando existir, `failure_code` guarda o codigo da recusa, `failure_message` guarda a mensagem da recusa, e `approved_at`/`failed_at` sao timestamps mutuamente exclusivos do desfecho da tentativa; em `PENDING`, esses campos ficam nulos
 - `cart.commercial_segment` define o contexto comercial da venda, com valores como `B2C`, `B2B` e `B2B2C`
 - `payment_method_rule` define a disponibilidade de meios por `scope`; a precedencia e `PRODUCT` acima de `SEGMENT`, acima de `GLOBAL`
+- a resolucao de meios nao mescla scopes: primeiro scope com regras ativas vence; dentro do mesmo scope, `priority` menor vem primeiro
 - a resolucao padrao de meios parte do segmento comercial do carrinho, com override por produto apenas quando existir regra especifica
+- exemplos de referencia: `B2B` -> `CARD`; `B2C` -> `PIX`, `NUPAY`, `CARD`, `PAYPAL`; `PRODUCT_I` em `B2C` -> `PIX`, `CARD`
 - a pagina de regras deve registrar exemplos de retorno do gateway para `APPROVED` e `FAILED`, mostrando o mapeamento dos campos de `cart_payment`
 - produto e o catalogo base; a variacao de periodo, preco, bonus e vigencia fica em `product_version`
 - `sku` e o codigo publico do produto

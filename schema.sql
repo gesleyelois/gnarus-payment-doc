@@ -78,7 +78,7 @@ CREATE TABLE payment_method_rule (
   product_id INTEGER,
   commercial_segment VARCHAR(20),
   payment_method_id INTEGER NOT NULL,
-  priority INTEGER NOT NULL DEFAULT 100,
+  priority INTEGER NOT NULL DEFAULT 100, -- lower values first within the same scope
   active BOOLEAN NOT NULL DEFAULT TRUE,
   valid_from TIMESTAMP,
   valid_to TIMESTAMP,

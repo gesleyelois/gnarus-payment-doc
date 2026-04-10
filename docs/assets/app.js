@@ -381,24 +381,24 @@ VALUES
       },
       {
         title: "Resolucao dos meios de pagamento",
-        copy: `A lista de meios parte do segmento comercial do carrinho. Regras por produto entram como excecao. A ordem de resolucao e produto, depois segmento, depois global.`,
+        copy: `A lista de meios parte do segmento comercial do carrinho. Regras por produto entram como excecao. A resolucao nao mescla niveis: o primeiro scope com regras ativas vence. Dentro do mesmo scope, \`priority\` ordena do menor para o maior.`,
         tables: [
           {
             title: "Precedencia",
-            columns: ["Nivel", "Leitura", "Uso"],
+            columns: ["Chave", "Leitura", "Uso"],
             rows: [
-              ["PRODUCT", "Regra mais especifica.", "Override pontual para um produto."],
-              ["SEGMENT", "Regra padrao do cart.", "B2C, B2B ou B2B2C."],
-              ["GLOBAL", "Fallback geral.", "Usado quando nao houver regra mais especifica."]
+              ["scope", "PRODUCT > SEGMENT > GLOBAL", "Primeiro nivel com regras ativas vence."],
+              ["priority", "menor valor primeiro", "Ordena os meios dentro do mesmo nivel."]
             ]
           },
           {
-            title: "Exemplos",
-            columns: ["Cenario", "Segmento", "Resultado"],
+            title: "Exemplos de prioridade",
+            columns: ["Cenario", "Regras que batem", "Ordem final"],
             rows: [
-              ["Carrinho B2C sem override", "B2C", "Usa as regras de segmento."],
-              ["Carrinho B2B sem override", "B2B", "Usa as regras de segmento."],
-              ["Produto com regra especifica", "B2C ou B2B", "Override do produto tem prioridade."]
+              ["B2B", "SEGMENT:B2B com CARD(10)", "CARD"],
+              ["B2C", "SEGMENT:B2C com PIX(10), NUPAY(20), CARD(30), PAYPAL(40)", "PIX, NUPAY, CARD, PAYPAL"],
+              ["PRODUCT_I em B2C", "PRODUCT: PRODUCT_I com PIX(1), CARD(2)", "PIX, CARD"],
+              ["Fallback global", "GLOBAL com CARD(100)", "CARD"]
             ]
           }
         ],
@@ -409,9 +409,13 @@ VALUES
         sql: `INSERT INTO payment_method_rule (id, scope, product_id, commercial_segment, payment_method_id, priority, active, valid_from, valid_to, created_at, updated_at)
 VALUES
   (1, 'GLOBAL', NULL, NULL, 2, 100, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  (2, 'SEGMENT', NULL, 'B2C', 1, 10, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  (3, 'SEGMENT', NULL, 'B2B', 2, 10, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  (4, 'PRODUCT', 1, NULL, 1, 1, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`
+  (2, 'SEGMENT', NULL, 'B2B', 2, 10, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (3, 'SEGMENT', NULL, 'B2C', 1, 10, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (4, 'SEGMENT', NULL, 'B2C', 4, 20, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (5, 'SEGMENT', NULL, 'B2C', 2, 30, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (6, 'SEGMENT', NULL, 'B2C', 3, 40, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (7, 'PRODUCT', 1, NULL, 1, 1, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (8, 'PRODUCT', 1, NULL, 2, 2, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`
       }
     ]
   },
