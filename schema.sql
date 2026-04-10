@@ -1,5 +1,5 @@
 -- gnarus-payment-doc
--- Versao 1: empresa, unidade de negocio, produto, versao comercial, carrinho/checkout e pagamento
+-- Versao 1: empresa, unidade de negocio, produto, bundle versionado, versao comercial, carrinho/checkout e pagamento
 -- A modelagem deve crescer de forma incremental, sem antecipar regras que ainda nao existem.
 
 CREATE TABLE company (
@@ -28,7 +28,7 @@ CREATE TABLE business_unit (
 CREATE TABLE product (
   id INTEGER PRIMARY KEY,
   company_id INTEGER NOT NULL,
-  business_unit_id INTEGER,
+  business_unit_id INTEGER NOT NULL, -- owning business unit
   sku VARCHAR(100) NOT NULL, -- unique within company
   name VARCHAR(255) NOT NULL,
   description VARCHAR(500),
@@ -60,10 +60,58 @@ CREATE TABLE product_version (
     UNIQUE (product_id, access_months, bonus_months, valid_from)
 );
 
-CREATE TABLE cart (
+CREATE TABLE bundle (
   id INTEGER PRIMARY KEY,
   company_id INTEGER NOT NULL,
   business_unit_id INTEGER,
+  code VARCHAR(100) NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP,
+  CONSTRAINT fk_bundle_company
+    FOREIGN KEY (company_id) REFERENCES company(id),
+  CONSTRAINT fk_bundle_business_unit
+    FOREIGN KEY (business_unit_id) REFERENCES business_unit(id),
+  CONSTRAINT uk_bundle_company_code
+    UNIQUE (company_id, code)
+);
+
+CREATE TABLE bundle_version (
+  id INTEGER PRIMARY KEY,
+  bundle_id INTEGER NOT NULL,
+  version_number INTEGER NOT NULL,
+  valid_from TIMESTAMP NOT NULL,
+  valid_to TIMESTAMP, -- null while the version is active
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP,
+  CONSTRAINT fk_bundle_version_bundle
+    FOREIGN KEY (bundle_id) REFERENCES bundle(id),
+  CONSTRAINT uk_bundle_version_history
+    UNIQUE (bundle_id, version_number)
+);
+
+CREATE TABLE bundle_item (
+  id INTEGER PRIMARY KEY,
+  bundle_version_id INTEGER NOT NULL,
+  product_version_id INTEGER NOT NULL,
+  quantity INTEGER NOT NULL DEFAULT 1,
+  sort_order INTEGER NOT NULL DEFAULT 1,
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP,
+  CONSTRAINT fk_bundle_item_bundle_version
+    FOREIGN KEY (bundle_version_id) REFERENCES bundle_version(id),
+  CONSTRAINT fk_bundle_item_product_version
+    FOREIGN KEY (product_version_id) REFERENCES product_version(id),
+  CONSTRAINT uk_bundle_item_bundle_version_product_version
+    UNIQUE (bundle_version_id, product_version_id)
+);
+
+CREATE TABLE cart (
+  id INTEGER PRIMARY KEY,
+  company_id INTEGER NOT NULL,
+  business_unit_id INTEGER, -- null when the cart mixes multiple business units
+  bundle_version_id INTEGER, -- snapshot of the bundle version used when the cart opened
   buyer_reference VARCHAR(100) NOT NULL,
   commercial_segment VARCHAR(20) NOT NULL DEFAULT 'B2C',
   status VARCHAR(50) NOT NULL DEFAULT 'DRAFT',
@@ -77,13 +125,16 @@ CREATE TABLE cart (
   CONSTRAINT fk_cart_company
     FOREIGN KEY (company_id) REFERENCES company(id),
   CONSTRAINT fk_cart_business_unit
-    FOREIGN KEY (business_unit_id) REFERENCES business_unit(id)
+    FOREIGN KEY (business_unit_id) REFERENCES business_unit(id),
+  CONSTRAINT fk_cart_bundle_version
+    FOREIGN KEY (bundle_version_id) REFERENCES bundle_version(id)
 );
 
 CREATE TABLE cart_item (
   id INTEGER PRIMARY KEY,
   cart_id INTEGER NOT NULL,
   product_version_id INTEGER NOT NULL,
+  business_unit_id INTEGER NOT NULL, -- snapshot of the line business unit
   quantity INTEGER NOT NULL DEFAULT 1,
   unit_price DECIMAL(12, 2) NOT NULL,
   total_price DECIMAL(12, 2) NOT NULL,
@@ -95,7 +146,9 @@ CREATE TABLE cart_item (
   CONSTRAINT fk_cart_item_cart
     FOREIGN KEY (cart_id) REFERENCES cart(id),
   CONSTRAINT fk_cart_item_product_version
-    FOREIGN KEY (product_version_id) REFERENCES product_version(id)
+    FOREIGN KEY (product_version_id) REFERENCES product_version(id),
+  CONSTRAINT fk_cart_item_business_unit
+    FOREIGN KEY (business_unit_id) REFERENCES business_unit(id)
 );
 
 CREATE TABLE payment_method (

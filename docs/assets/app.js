@@ -4,8 +4,9 @@ const sections = [
     title: "01. Empresa",
     copy: `- \`company\` delimita o tenant.
 - \`business_unit\` organiza produtos, carrinhos e regras dentro da empresa.
-- \`product\`, \`cart\`, \`payment_method\` e \`payment_method_rule\` carregam \`company_id\`.
-- \`business_unit_id\` e opcional em produto, carrinho e regra.
+- a visao geral fica em camadas: catalogo, bundle, checkout e pagamento.
+- \`bundle_version\` guarda o historico da composicao; \`bundle_item\` pertence a \`bundle_version\`.
+- \`business_unit_id\` e obrigatorio em produto e na linha do carrinho; e opcional em bundle, carrinho e regra.
 - \`sku\` e \`payment_method.code\` sao unicos por empresa.`,
     tables: [
       {
@@ -13,7 +14,8 @@ const sections = [
         columns: ["Campo", "Descricao", "Valores"],
         rows: [
           ["company.status", "Estado da empresa.", "ACTIVE | INACTIVE"],
-          ["business_unit.status", "Estado da unidade de negocio.", "ACTIVE | INACTIVE"]
+          ["business_unit.status", "Estado da unidade de negocio.", "ACTIVE | INACTIVE"],
+          ["bundle.status", "Estado do bundle.", "ACTIVE | INACTIVE"]
         ]
       },
       {
@@ -27,28 +29,155 @@ const sections = [
         ]
       },
       {
+        title: "Camadas da modelagem",
+        columns: ["Camada", "Entidades", "Leitura"],
+        rows: [
+          ["Catalogo", "company, business_unit, product, product_version", "Cadastro e historico comercial."],
+          ["Bundle", "bundle, bundle_version, bundle_item", "Composicao publica versionada."],
+          ["Checkout", "cart, cart_item, cart_payment", "Snapshot da compra e pagamento."],
+          ["Pagamento", "payment_method, payment_method_rule", "Meios e regras de uso."]
+        ]
+      },
+      {
         title: "Contexto de uso",
         columns: ["Tabela", "company_id", "business_unit_id", "Leitura"],
         rows: [
-          ["product", "obrigatorio", "opcional", "Catalogo da empresa."],
-          ["cart", "obrigatorio", "opcional", "Checkout da empresa."],
+          ["product", "obrigatorio", "obrigatorio", "Catalogo da empresa."],
+          ["bundle", "obrigatorio", "opcional", "Raiz publica da composicao."],
+          ["bundle_version", "via bundle", "via bundle", "Versao historica da composicao."],
+          ["bundle_item", "via bundle_version", "-", "Itens da bundle_version."],
+          ["cart", "obrigatorio", "opcional", "Checkout da empresa; snapshot da bundle_version."],
+          ["cart_item", "via cart", "obrigatorio", "Linha da compra e snapshot da BU."],
           ["payment_method", "obrigatorio", "-", "Meio liberado por empresa."],
           ["payment_method_rule", "obrigatorio", "opcional", "Regra aplicada dentro da empresa."]
         ]
       }
     ],
-    diagram: `erDiagram
+    diagram: `flowchart TB
+  COMPANY[company]
+
+  subgraph CATALOGO["Catalogo"]
+    BUSINESS_UNIT[business_unit]
+    PRODUCT[product]
+    PRODUCT_VERSION[product_version]
+  end
+
+  subgraph BUNDLE_GROUP["Bundle"]
+    BUNDLE[bundle]
+    BUNDLE_VERSION[bundle_version]
+    BUNDLE_ITEM[bundle_item]
+  end
+
+  subgraph CHECKOUT_GROUP["Checkout"]
+    CART[cart]
+    CART_ITEM[cart_item]
+    CART_PAYMENT[cart_payment]
+  end
+
+  subgraph PAGAMENTO_GROUP["Pagamento"]
+    PAYMENT_METHOD[payment_method]
+    PAYMENT_METHOD_RULE[payment_method_rule]
+  end
+
+  COMPANY --> BUSINESS_UNIT
+  COMPANY --> PRODUCT
+  BUSINESS_UNIT --> PRODUCT
+  PRODUCT --> PRODUCT_VERSION
+
+  COMPANY --> BUNDLE
+  BUSINESS_UNIT --> BUNDLE
+  BUNDLE --> BUNDLE_VERSION
+  BUNDLE_VERSION --> BUNDLE_ITEM
+  PRODUCT_VERSION --> BUNDLE_ITEM
+
+  COMPANY --> CART
+  BUSINESS_UNIT --> CART
+  CART --> CART_ITEM
+  PRODUCT_VERSION --> CART_ITEM
+  CART --> CART_PAYMENT
+
+  COMPANY --> PAYMENT_METHOD
+  COMPANY --> PAYMENT_METHOD_RULE
+  BUSINESS_UNIT --> PAYMENT_METHOD_RULE
+  PAYMENT_METHOD --> CART_PAYMENT
+  PAYMENT_METHOD --> PAYMENT_METHOD_RULE`,
+    subsections: [
+      {
+        title: "Catalogo",
+        copy: `A camada de catalogo concentra a identidade da empresa, as unidades de negocio e o historico comercial do produto.`,
+        diagram: `erDiagram
   COMPANY ||--o{ BUSINESS_UNIT : "1:N"
   COMPANY ||--o{ PRODUCT : "1:N"
   BUSINESS_UNIT ||--o{ PRODUCT : "0:N"
+  PRODUCT ||--o{ PRODUCT_VERSION : "1:N"`
+      },
+      {
+        title: "Bundle",
+        copy: `A camada de bundle registra a composicao publica e sua versao historica. bundle_item aponta a versao do produto que entra na composicao.`,
+        diagram: `erDiagram
+  COMPANY ||--o{ BUNDLE : "1:N"
+  BUSINESS_UNIT ||--o{ BUNDLE : "0:N"
+  BUNDLE ||--o{ BUNDLE_VERSION : "1:N"
+  BUNDLE_VERSION ||--o{ BUNDLE_ITEM : "1:N"
+  PRODUCT_VERSION ||--o{ BUNDLE_ITEM : "1:N"`
+      },
+      {
+        title: "Checkout",
+        copy: `A camada de checkout guarda o carrinho, os itens materializados e a tentativa de pagamento ligada ao carrinho.`,
+        diagram: `erDiagram
   COMPANY ||--o{ CART : "1:N"
   BUSINESS_UNIT ||--o{ CART : "0:N"
+  BUNDLE_VERSION ||--o{ CART : "0:N"
+  CART ||--o{ CART_ITEM : "1:N"
+  PRODUCT_VERSION ||--o{ CART_ITEM : "1:N"
+  CART ||--o{ CART_PAYMENT : "1:N"`
+      },
+      {
+        title: "Pagamento",
+        copy: `A camada de pagamento concentra os meios liberados e as regras que resolvem quais meios aparecem para cada venda.`,
+        diagram: `erDiagram
   COMPANY ||--o{ PAYMENT_METHOD : "1:N"
   COMPANY ||--o{ PAYMENT_METHOD_RULE : "1:N"
   BUSINESS_UNIT ||--o{ PAYMENT_METHOD_RULE : "0:N"
-  PRODUCT ||--o{ PRODUCT_VERSION : "1:N"
   PRODUCT ||--o{ PAYMENT_METHOD_RULE : "0:N"
-  PAYMENT_METHOD ||--o{ PAYMENT_METHOD_RULE : "1:N"`,
+  PAYMENT_METHOD ||--o{ PAYMENT_METHOD_RULE : "1:N"
+  PAYMENT_METHOD ||--o{ CART_PAYMENT : "1:N"`
+      },
+      {
+        title: "Fluxo do product_version",
+        copy: `A consulta publica resolve o \`sku\` do produto dentro da empresa, encontra a \`product_version\` ativa, abre o \`cart\` e congela esse snapshot no \`cart_item\`. Se preco, prazo ou bonus mudam, a versao antiga fecha e uma nova linha passa a valer.`,
+        diagram: `sequenceDiagram
+  participant U as Usuario
+  participant P as product
+  participant V as product_version
+  participant C as cart
+  participant I as cart_item
+
+  U->>P: acessa sku
+  P->>V: resolve versao ativa
+  V-->>U: oferta vigente
+  V->>C: abre carrinho com a oferta
+  C->>I: grava snapshot na compra
+  I-->>U: item congelado`
+      },
+      {
+        title: "Fluxo do bundle_version",
+        copy: `A consulta publica resolve \`bundle.code\`, encontra a \`bundle_version\` ativa e abre o carrinho com esse snapshot. Os \`bundle_item\` da versao sao materializados em \`cart_item\` e nao mudam depois da abertura.`,
+        diagram: `sequenceDiagram
+  participant U as Usuario
+  participant B as bundle
+  participant V as bundle_version
+  participant C as cart
+  participant I as cart_item
+
+  U->>B: acessa bundle.code
+  B->>V: resolve versao ativa
+  V-->>U: composicao vigente
+  V->>C: cria cart com bundle_version_id
+  V->>I: materializa bundle_item
+  C-->>U: carrinho carregado`
+      }
+    ],
     sql: `INSERT INTO company (id, code, name, status, created_at, updated_at)
 VALUES
   (1, 'GROUP_A', 'Grupo A', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
@@ -60,14 +189,14 @@ VALUES
   {
     label: "Produto",
     title: "02. Produto",
-    copy: `Produto e o catalogo da empresa. \`company_id\` identifica o tenant e \`business_unit_id\` e opcional. \`sku\` identifica o produto na camada publica dentro da empresa. Periodo, preco, bonus e vigencia ficam em \`product_version\`. \`valid_to\` nulo significa versao vigente, nao versao vitalicia. A tela de produto pode listar a versao vigente resolvida por \`sku\`.`,
+    copy: `Produto e o catalogo da empresa. \`company_id\` identifica o tenant e \`business_unit_id\` e obrigatorio. \`sku\` identifica o produto na camada publica dentro da empresa. Periodo, preco, bonus e vigencia ficam em \`product_version\`. \`valid_to\` nulo significa versao vigente, nao versao vitalicia. A tela de produto pode listar a versao vigente resolvida por \`sku\`.`,
     tables: [
       {
         title: "Contexto do produto",
         columns: ["Campo", "Regra", "Exemplo"],
         rows: [
           ["company_id", "Obrigatorio.", "1"],
-          ["business_unit_id", "Opcional.", "NULL"],
+          ["business_unit_id", "Obrigatorio.", "1"],
           ["sku", "Unico por company.", "PLUS"]
         ]
       },
@@ -115,12 +244,6 @@ VALUES
   }`,
     subsections: [
       {
-        title: "Versao comercial",
-        copy: `Cada linha registra uma oferta do mesmo produto. Quando periodo, preco ou bonus mudam, a linha anterior fecha e uma nova linha entra no ar. A versao atual pode ficar com \`valid_to\` nulo ate ser substituida. O \`sku\` resolve o produto dentro da empresa, e a camada publica mostra apenas a versao vigente desse \`sku\`.`,
-        diagram: `erDiagram
-  PRODUCT ||--o{ PRODUCT_VERSION : "1:N"`
-      },
-      {
         title: "Historico comercial",
         copy: `A nova oferta nao altera o registro anterior. O historico fica na propria tabela de versao. \`valid_to\` nulo identifica a versao ainda vigente. Se existir mais de uma versao vigente para o mesmo \`sku\` dentro da empresa, isso e erro de cadastro.`,
         diagram: `flowchart LR
@@ -149,14 +272,16 @@ VALUES
   {
     label: "Carrinho",
     title: "03. Carrinho",
-    copy: `O carrinho guarda o snapshot da versao escolhida dentro da empresa. \`company_id\` identifica o tenant e \`business_unit_id\` carrega o recorte da venda quando existir. \`access_months\` e \`bonus_months\` repetem os termos da oferta no momento da compra. \`quantity\` indica quantas unidades daquela linha foram compradas. \`commercial_segment\` define o contexto da venda, como B2C ou B2B. Ao reabrir o carrinho, a interface usa \`cart_item.product_version_id\`, nao \`product_id\`.`,
+    copy: `O carrinho guarda o snapshot da versao escolhida dentro da empresa. \`company_id\` identifica o tenant. \`bundle_version_id\` aponta a versao de origem quando a compra nasce de um bundle. \`business_unit_id\` no cabecalho e opcional; quando a venda mistura BUs, ele fica nulo. Cada \`cart_item\` grava a BU da linha. \`access_months\` e \`bonus_months\` repetem os termos da oferta no momento da compra. \`quantity\` indica quantas unidades daquela linha foram compradas. \`commercial_segment\` define o contexto da venda, como B2C ou B2B. Ao reabrir o carrinho, a interface usa \`cart_item.product_version_id\`, nao \`product_id\`.`,
     tables: [
       {
         title: "Contexto da venda",
         columns: ["Campo", "Regra", "Uso"],
         rows: [
           ["company_id", "Obrigatorio.", "Empresa dona do checkout."],
-          ["business_unit_id", "Opcional.", "Unidade de negocio da venda."]
+          ["bundle_version_id", "Opcional.", "Versao do bundle de origem do carrinho."],
+          ["business_unit_id", "Opcional.", "Unidade de negocio do carrinho; nulo quando a venda mistura BUs."],
+          ["cart_item.business_unit_id", "Obrigatorio.", "BU congelada em cada linha."]
         ]
       },
       {
@@ -173,6 +298,7 @@ VALUES
         columns: ["Campo", "Origem", "Uso"],
         rows: [
           ["product_version_id", "product_version.id", "Referencia da oferta escolhida e versao exibida ao reabrir o carrinho."],
+          ["business_unit_id", "product.business_unit_id", "BU congelada na linha."],
           ["quantity", "Definido no carrinho", "Unidades compradas. Assinatura costuma ser 1; evento pode ser maior."],
           ["access_months", "product_version.access_months", "Periodo base contratado na compra."],
           ["bonus_months", "product_version.bonus_months", "Meses extras concedidos na compra."],
@@ -188,6 +314,7 @@ VALUES
           ["Carrinho aberto", "DRAFT", "-", "Itens podem mudar."],
           ["Meio escolhido", "CHECKOUT", "PENDING", "cart_payment criado."],
           ["Aguardando resposta", "CHECKOUT", "PENDING", "Fluxo assincrono em aberto."],
+          ["Venda mista", "CHECKOUT", "PENDING", "cart.business_unit_id = NULL; cada linha guarda a propria BU."],
           ["Sucesso", "COMPLETED", "APPROVED", "Carrinho fechado."],
           ["Falha", "CHECKOUT", "FAILED", "Nova tentativa permitida."]
         ]
@@ -198,24 +325,6 @@ VALUES
   PRODUCT_VERSION ||--o{ CART_ITEM : "1:N"`,
     subsections: [
       {
-        title: "Ciclo do checkout",
-        copy: `O usuario abre o carrinho, escolhe a versao comercial e o item grava o snapshot. Depois disso, o registro do produto pode mudar sem afetar o item ja criado.`,
-        diagram: `sequenceDiagram
-  participant U as Usuario
-  participant C as cart
-  participant V as product_version
-  participant I as cart_item
-  participant P as cart_payment
-
-  U->>C: abre carrinho
-  C-->>U: cart DRAFT
-  U->>V: escolhe versao
-  C->>I: grava snapshot da versao
-  C->>C: status CHECKOUT
-  U->>P: avanca para pagamento
-  C->>P: cria cart_payment PENDING`
-      },
-      {
         title: "Exemplo da compra",
         copy: `A oferta ativa de 12 meses com 2 meses de bonus entra no carrinho como 14 meses de acesso. O preco do item fica congelado no fechamento.`,
         tables: [
@@ -224,7 +333,7 @@ VALUES
             columns: ["Tabela", "Dados", "Leitura"],
             rows: [
               ["product_version", "id=2 | access_months=12 | bonus_months=2 | price_amount=199.90", "Oferta usada no fechamento."],
-              ["cart_item", "product_version_id=2 | quantity=1 | access_months=12 | bonus_months=2 | total_access_months=14 | unit_price=199.90", "Snapshot do carrinho."],
+              ["cart_item", "product_version_id=2 | business_unit_id=1 | quantity=1 | access_months=12 | bonus_months=2 | total_access_months=14 | unit_price=199.90", "Snapshot do carrinho."],
               ["cart_payment", "status=PENDING -> APPROVED", "Tentativa de pagamento concluida com sucesso."]
             ]
           }
@@ -246,13 +355,26 @@ VALUES
   P->>C: marca COMPLETED`
       }
     ],
-    sql: `INSERT INTO cart (id, company_id, business_unit_id, buyer_reference, commercial_segment, status, currency, subtotal_amount, discount_amount, total_amount, expires_at, created_at, updated_at)
+    sql: `INSERT INTO bundle (id, company_id, business_unit_id, code, name, status, created_at, updated_at)
 VALUES
-  (1, 1, 1, 'BUYER-1001', 'B2C', 'DRAFT', 'BRL', 199.90, 0.00, 199.90, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+  (1, 1, NULL, 'BUNDLE-PLUS', 'Bundle Plus', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
-INSERT INTO cart_item (id, cart_id, product_version_id, quantity, unit_price, total_price, access_months, bonus_months, total_access_months, created_at, updated_at)
+INSERT INTO bundle_version (id, bundle_id, version_number, valid_from, valid_to, created_at, updated_at)
 VALUES
-  (1, 1, 2, 1, 199.90, 199.90, 12, 2, 14, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`
+  (1, 1, 1, '2026-01-01', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+INSERT INTO bundle_item (id, bundle_version_id, product_version_id, quantity, sort_order, created_at, updated_at)
+VALUES
+  (1, 1, 10, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (2, 1, 21, 2, 2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+INSERT INTO cart (id, company_id, bundle_version_id, business_unit_id, buyer_reference, commercial_segment, status, currency, subtotal_amount, discount_amount, total_amount, expires_at, created_at, updated_at)
+VALUES
+  (1, 1, 1, NULL, 'BUYER-1001', 'B2C', 'DRAFT', 'BRL', 199.90, 0.00, 199.90, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+INSERT INTO cart_item (id, cart_id, product_version_id, business_unit_id, quantity, unit_price, total_price, access_months, bonus_months, total_access_months, created_at, updated_at)
+VALUES
+  (1, 1, 2, 1, 1, 199.90, 199.90, 12, 2, 14, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`
   },
   {
     label: "Pagamento",
@@ -349,7 +471,7 @@ VALUES
         columns: ["Campo", "Regra", "Uso"],
         rows: [
           ["company_id", "Obrigatorio em product, cart, payment_method e payment_method_rule.", "Limita a consulta ao tenant."],
-          ["business_unit_id", "Opcional em product, cart e payment_method_rule.", "Recorte interno da empresa."],
+          ["business_unit_id", "Obrigatorio em product e cart_item; opcional em cart e payment_method_rule.", "Recorte interno da empresa."],
           ["sku", "Unico por company.", "Resolve a vitrine publica."],
           ["payment_method.code", "Unico por company.", "Resolve o meio dentro da empresa."]
         ]
@@ -368,7 +490,8 @@ VALUES
         columns: ["Campo", "Fonte", "Regra"],
         rows: [
           ["company_id", "empresa do checkout", "Identifica o tenant."],
-          ["business_unit_id", "BU da venda, quando houver", "Recorte interno da empresa."],
+          ["bundle_version_id", "bundle.code resolvido", "Versao do bundle que originou o carrinho."],
+          ["business_unit_id", "header do cart ou linha do item", "Resumo do checkout ou snapshot da linha."],
           ["buyer_reference", "sessao, token ou customer futuro", "Identifica o dono do checkout."],
           ["subtotal_amount", "soma de cart_item.total_price", "Resumo dos itens."],
           ["discount_amount", "cupom ou campanha futura", "Zero na v1."],
@@ -414,8 +537,38 @@ VALUES
   P->>C: atualiza status do checkout`
       },
       {
+        title: "Venda mista",
+        copy: `Um carrinho pode misturar produtos de BUs diferentes. O cabecalho continua ligado a empresa e ao segmento comercial; a BU do cabecalho vira nula quando ha mais de uma BU. Cada item grava a sua propria BU. Na v1, bundle e uma composicao predefinida que materializa varios itens no mesmo carrinho.`,
+        tables: [
+          {
+            title: "Exemplo de linhas",
+            columns: ["Tabela", "Dados", "Leitura"],
+            rows: [
+              ["cart", "company_id=1 | business_unit_id=NULL | commercial_segment=B2C", "Carrinho com mais de uma BU."],
+              ["cart_item 1", "product_version_id=10 | business_unit_id=EDU | quantity=1", "Linha do produto da BU EDU."],
+              ["cart_item 2", "product_version_id=21 | business_unit_id=EVENTOS | quantity=2", "Linha do produto da BU EVENTOS."]
+            ]
+          },
+          {
+            title: "Regra",
+            columns: ["Cenario", "Leitura", "Uso"],
+            rows: [
+              ["Uma BU", "cart.business_unit_id preenchido", "Checkout simples."],
+              ["Multiplas BUs", "cart.business_unit_id = NULL", "Venda mista."],
+              ["Bundle", "multiple cart_item rows", "Sem tabela extra na v1."]
+            ]
+          }
+        ],
+        diagram: `flowchart LR
+  CART[cart] --> ITEM1[cart_item EDU]
+  CART --> ITEM2[cart_item EVENTOS]
+  CART --> PAYMENT[cart_payment]
+  ITEM1 --> TOTAL[cart totals]
+  ITEM2 --> TOTAL`
+      },
+      {
         title: "Fluxo do pagamento",
-        copy: `Cartao costuma aprovar ou recusar na hora. Pix, NuPay e PayPal podem responder depois; enquanto isso, a tentativa continua em \`PENDING\`. A lista de meios segue as regras da empresa e pode ser restrita por BU, segmento ou produto.`,
+        copy: `Cartao costuma aprovar ou recusar na hora. Pix, NuPay e PayPal podem responder depois; enquanto isso, a tentativa continua em \`PENDING\`. A lista de meios segue as regras da empresa e pode ser restrita por BU, segmento ou produto. Quando o carrinho mistura BUs, a regra de BU vale so para o caso em que a venda esteja fechada em uma unica BU; no restante, a resolucao segue produto, segmento ou global.`,
         tables: [
           {
             title: "Estados da tentativa",
@@ -456,7 +609,7 @@ VALUES
       },
       {
         title: "Resolucao dos meios de pagamento",
-        copy: `A lista de meios parte da empresa do carrinho. Regras por produto e por BU entram como excecao. A resolucao nao mescla niveis: o primeiro scope com regras ativas vence. Dentro do mesmo scope, \`priority\` ordena do menor para o maior.`,
+        copy: `A lista de meios parte da empresa do carrinho. Regras por produto e por BU entram como excecao. Em venda mista, a BU do cabecalho fica nula; a regra de BU so vale quando a compra fecha em uma unica BU. A resolucao nao mescla niveis: o primeiro scope com regras ativas vence. Dentro do mesmo scope, \`priority\` ordena do menor para o maior.`,
         tables: [
           {
             title: "Precedencia",
@@ -557,10 +710,38 @@ const entityAttributes = {
     { name: "created_at", type: "Timestamp", description: "Data de criacao." },
     { name: "updated_at", type: "Timestamp", description: "Data da ultima atualizacao." }
   ],
+  BUNDLE: [
+    { name: "id", type: "Integer", description: "Identificador da linha." },
+    { name: "company_id", type: "Integer", description: "Empresa dona do bundle." },
+    { name: "business_unit_id", type: "Integer", description: "Unidade de negocio do bundle, quando houver uma unica BU." },
+    { name: "code", type: "Varchar", description: "Codigo publico do bundle dentro da empresa." },
+    { name: "name", type: "Varchar", description: "Nome comercial do bundle." },
+    { name: "status", type: "Varchar", description: "Disponibilidade do bundle.", values: "ACTIVE | INACTIVE" },
+    { name: "created_at", type: "Timestamp", description: "Data de criacao." },
+    { name: "updated_at", type: "Timestamp", description: "Data da ultima atualizacao." }
+  ],
+  BUNDLE_VERSION: [
+    { name: "id", type: "Integer", description: "Identificador da linha." },
+    { name: "bundle_id", type: "Integer", description: "Bundle pai." },
+    { name: "version_number", type: "Integer", description: "Numero sequencial da versao." },
+    { name: "valid_from", type: "Timestamp", description: "Inicio da vigencia da versao." },
+    { name: "valid_to", type: "Timestamp", description: "Fim da vigencia da versao. Null enquanto a versao estiver ativa." },
+    { name: "created_at", type: "Timestamp", description: "Data de criacao." },
+    { name: "updated_at", type: "Timestamp", description: "Data da ultima atualizacao." }
+  ],
+  BUNDLE_ITEM: [
+    { name: "id", type: "Integer", description: "Identificador da linha." },
+    { name: "bundle_version_id", type: "Integer", description: "Versao do bundle pai." },
+    { name: "product_version_id", type: "Integer", description: "Versao comercial que entra no bundle." },
+    { name: "quantity", type: "Integer", description: "Quantidade do item no bundle." },
+    { name: "sort_order", type: "Integer", description: "Ordem de exibicao do item." },
+    { name: "created_at", type: "Timestamp", description: "Data de criacao." },
+    { name: "updated_at", type: "Timestamp", description: "Data da ultima atualizacao." }
+  ],
   PRODUCT: [
     { name: "id", type: "Integer", description: "Identificador da linha." },
     { name: "company_id", type: "Integer", description: "Empresa dona do produto." },
-    { name: "business_unit_id", type: "Integer", description: "Unidade de negocio do produto, quando houver." },
+    { name: "business_unit_id", type: "Integer", description: "Unidade de negocio do produto." },
     { name: "sku", type: "Varchar", description: "SKU unico do produto dentro da empresa." },
     { name: "name", type: "Varchar", description: "Nome comercial." },
     { name: "description", type: "Varchar", description: "Descricao opcional." },
@@ -583,7 +764,8 @@ const entityAttributes = {
   CART: [
     { name: "id", type: "Integer", description: "Identificador da linha." },
     { name: "company_id", type: "Integer", description: "Empresa dona do carrinho." },
-    { name: "business_unit_id", type: "Integer", description: "Unidade de negocio da venda, quando houver." },
+    { name: "bundle_version_id", type: "Integer", description: "Versao do bundle de origem, quando houver." },
+    { name: "business_unit_id", type: "Integer", description: "Unidade de negocio do carrinho quando ele fica em uma unica BU; nulo em venda mista." },
     { name: "buyer_reference", type: "Varchar", description: "Referencia do comprador." },
     { name: "commercial_segment", type: "Varchar", description: "Segmento comercial da venda.", values: "B2C | B2B | B2B2C" },
     { name: "status", type: "Varchar", description: "Estado do checkout.", values: "DRAFT | CHECKOUT | COMPLETED | CANCELED | EXPIRED" },
@@ -599,6 +781,7 @@ const entityAttributes = {
     { name: "id", type: "Integer", description: "Identificador da linha." },
     { name: "cart_id", type: "Integer", description: "Carrinho pai." },
     { name: "product_version_id", type: "Integer", description: "Versao comercial referenciada." },
+    { name: "business_unit_id", type: "Integer", description: "BU congelada da linha." },
     { name: "quantity", type: "Integer", description: "Quantidade do item." },
     { name: "unit_price", type: "Decimal(12,2)", description: "Preco unitario no fechamento." },
     { name: "total_price", type: "Decimal(12,2)", description: "Total do item." },
