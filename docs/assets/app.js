@@ -339,6 +339,16 @@ VALUES
               ["NUPAY", "Assincrono", "PENDING", "APPROVED ou FAILED"],
               ["PAYPAL", "Assincrono", "PENDING", "APPROVED ou FAILED"]
             ]
+          },
+          {
+            title: "Exemplos de retorno do gateway",
+            columns: ["Cenario", "provider_reference", "authorization_code", "failure_code", "failure_message", "status"],
+            rows: [
+              ["APPROVED / CARD", "pi_3QxjD9xQ9M7A1B2C3D4", "832741", "NULL", "NULL", "APPROVED"],
+              ["FAILED / CARD", "pi_3QxjD9xQ9M7A1B2C3D4", "NULL", "card_declined", "The card was declined.", "FAILED"],
+              ["APPROVED / PIX", "E2E123456789012345678901234567890", "NULL", "NULL", "NULL", "APPROVED"],
+              ["FAILED / PIX", "E2E123456789012345678901234567890", "NULL", "expired", "Payment QR code expired.", "FAILED"]
+            ]
           }
         ],
         diagram: `stateDiagram-v2
