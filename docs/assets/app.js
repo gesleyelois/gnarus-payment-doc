@@ -4,16 +4,19 @@ const sections = [
     title: "01. Escopo",
     copy: `- \`product\`: catalogo base.
 - \`product_version\`: periodo, preco, bonus e historico comercial do mesmo produto.
-- \`cart\`: checkout com status e totais.
+- \`cart\`: checkout com segmento comercial, status e totais.
 - \`cart_item\`: snapshot da versao escolhida.
 - \`payment_method\`: meios de pagamento disponiveis.
+- \`payment_method_rule\`: disponibilidade dos meios por segmento ou excecao por produto.
 - \`cart_payment\`: tentativa de pagamento ligada ao carrinho.`,
     diagram: `erDiagram
   PRODUCT ||--o{ PRODUCT_VERSION : "1:N"
   PRODUCT_VERSION ||--o{ CART_ITEM : "1:N"
   CART ||--o{ CART_ITEM : "1:N"
   CART ||--o{ CART_PAYMENT : "1:N"
-  PAYMENT_METHOD ||--o{ CART_PAYMENT : "1:N"`
+  PAYMENT_METHOD ||--o{ CART_PAYMENT : "1:N"
+  PRODUCT ||--o{ PAYMENT_METHOD_RULE : "0:N"
+  PAYMENT_METHOD ||--o{ PAYMENT_METHOD_RULE : "1:N"`
   },
   {
     label: "Produto",
@@ -99,13 +102,14 @@ VALUES
   {
     label: "Carrinho",
     title: "03. Carrinho",
-    copy: `O carrinho guarda o snapshot da versao escolhida. \`access_months\` e \`bonus_months\` repetem os termos da oferta no momento da compra. \`quantity\` indica quantas unidades daquela linha foram compradas. Ao reabrir o carrinho, a interface usa \`cart_item.product_version_id\`, nao \`product_id\`.`,
+    copy: `O carrinho guarda o snapshot da versao escolhida. \`access_months\` e \`bonus_months\` repetem os termos da oferta no momento da compra. \`quantity\` indica quantas unidades daquela linha foram compradas. \`commercial_segment\` define o contexto da venda, como B2C ou B2B. Ao reabrir o carrinho, a interface usa \`cart_item.product_version_id\`, nao \`product_id\`.`,
     tables: [
       {
         title: "Valores controlados",
         columns: ["Campo", "Descricao", "Valores"],
         rows: [
           ["status", "Estado do checkout.", "DRAFT | CHECKOUT | COMPLETED | CANCELED | EXPIRED"],
+          ["commercial_segment", "Segmento comercial da venda.", "B2C | B2B | B2B2C"],
           ["currency", "Moeda do carrinho.", "BRL"]
         ]
       },
@@ -187,9 +191,9 @@ VALUES
   P->>C: marca COMPLETED`
       }
     ],
-    sql: `INSERT INTO cart (id, buyer_reference, status, currency, subtotal_amount, discount_amount, total_amount, expires_at, created_at, updated_at)
+    sql: `INSERT INTO cart (id, buyer_reference, commercial_segment, status, currency, subtotal_amount, discount_amount, total_amount, expires_at, created_at, updated_at)
 VALUES
-  (1, 'BUYER-1001', 'DRAFT', 'BRL', 199.90, 0.00, 199.90, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+  (1, 'BUYER-1001', 'B2C', 'DRAFT', 'BRL', 199.90, 0.00, 199.90, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 INSERT INTO cart_item (id, cart_id, product_version_id, quantity, unit_price, total_price, access_months, bonus_months, total_access_months, created_at, updated_at)
 VALUES
@@ -198,14 +202,15 @@ VALUES
   {
     label: "Pagamento",
     title: "04. Pagamento",
-    copy: `A tentativa entra em PENDING. Cartao aprova ou recusa na hora. PIX, NuPay e PayPal podem confirmar depois; enquanto isso, a linha permanece em PENDING.`,
+    copy: `A tentativa entra em PENDING. A disponibilidade dos meios vem de payment_method_rule, com regra por produto, por segmento comercial ou global. Cartao aprova ou recusa na hora. PIX, NuPay e PayPal podem confirmar depois; enquanto isso, a linha permanece em PENDING.`,
     tables: [
       {
         title: "Valores controlados",
         columns: ["Campo", "Descricao", "Valores"],
         rows: [
           ["status", "Estado da tentativa.", "PENDING | APPROVED | FAILED"],
-          ["payment_method.code", "Codigo do meio de pagamento.", "PIX | CARD | PAYPAL | NUPAY"]
+          ["payment_method.code", "Codigo do meio de pagamento.", "PIX | CARD | PAYPAL | NUPAY"],
+          ["payment_method_rule.scope", "Nivel da regra.", "GLOBAL | SEGMENT | PRODUCT"]
         ]
       },
       {
@@ -218,6 +223,15 @@ VALUES
           ["failure_message", "Mensagem ou descricao da recusa.", "Quando a tentativa termina em FAILED."],
           ["approved_at", "Timestamp da conclusao com sucesso.", "Quando status vira APPROVED."],
           ["failed_at", "Timestamp da conclusao com falha.", "Quando status vira FAILED."]
+        ]
+      },
+      {
+        title: "Resolucao dos meios",
+        columns: ["Nivel", "Fonte", "Uso"],
+        rows: [
+          ["PRODUCT", "payment_method_rule.scope = PRODUCT", "Override para um produto especifico."],
+          ["SEGMENT", "payment_method_rule.scope = SEGMENT", "Regra padrao para B2C, B2B ou B2B2C."],
+          ["GLOBAL", "payment_method_rule.scope = GLOBAL", "Fallback quando nao houver regra mais especifica."]
         ]
       },
       {
@@ -251,6 +265,13 @@ VALUES
   (2, 'CARD', 'Cartao de credito', 'STRIPE', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
   (3, 'PAYPAL', 'PayPal', 'PAYPAL', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
   (4, 'NUPAY', 'NuPay', 'NUBANK', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+INSERT INTO payment_method_rule (id, scope, product_id, commercial_segment, payment_method_id, priority, active, valid_from, valid_to, created_at, updated_at)
+VALUES
+  (1, 'GLOBAL', NULL, NULL, 2, 100, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (2, 'SEGMENT', NULL, 'B2C', 1, 10, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (3, 'SEGMENT', NULL, 'B2C', 2, 20, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (4, 'PRODUCT', 1, NULL, 1, 1, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 INSERT INTO cart_payment (id, cart_id, payment_method_id, amount, status, provider_reference, authorization_code, failure_code, failure_message, approved_at, failed_at, created_at, updated_at)
 VALUES
@@ -357,6 +378,40 @@ VALUES
   PENDING --> FAILED: recusa
   APPROVED --> [*]
   FAILED --> [*]`
+      },
+      {
+        title: "Resolucao dos meios de pagamento",
+        copy: `A lista de meios parte do segmento comercial do carrinho. Regras por produto entram como excecao. A ordem de resolucao e produto, depois segmento, depois global.`,
+        tables: [
+          {
+            title: "Precedencia",
+            columns: ["Nivel", "Leitura", "Uso"],
+            rows: [
+              ["PRODUCT", "Regra mais especifica.", "Override pontual para um produto."],
+              ["SEGMENT", "Regra padrao do cart.", "B2C, B2B ou B2B2C."],
+              ["GLOBAL", "Fallback geral.", "Usado quando nao houver regra mais especifica."]
+            ]
+          },
+          {
+            title: "Exemplos",
+            columns: ["Cenario", "Segmento", "Resultado"],
+            rows: [
+              ["Carrinho B2C sem override", "B2C", "Usa as regras de segmento."],
+              ["Carrinho B2B sem override", "B2B", "Usa as regras de segmento."],
+              ["Produto com regra especifica", "B2C ou B2B", "Override do produto tem prioridade."]
+            ]
+          }
+        ],
+        diagram: `flowchart LR
+  CART[cart.commercial_segment] --> RULE[payment_method_rule]
+  PRODUCT[product opcional] --> RULE
+  RULE --> METHOD[payment_method]`,
+        sql: `INSERT INTO payment_method_rule (id, scope, product_id, commercial_segment, payment_method_id, priority, active, valid_from, valid_to, created_at, updated_at)
+VALUES
+  (1, 'GLOBAL', NULL, NULL, 2, 100, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (2, 'SEGMENT', NULL, 'B2C', 1, 10, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (3, 'SEGMENT', NULL, 'B2B', 2, 10, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (4, 'PRODUCT', 1, NULL, 1, 1, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`
       }
     ]
   },
@@ -411,6 +466,7 @@ const entityAttributes = {
   CART: [
     { name: "id", type: "Integer", description: "Identificador da linha." },
     { name: "buyer_reference", type: "Varchar", description: "Referencia do comprador." },
+    { name: "commercial_segment", type: "Varchar", description: "Segmento comercial da venda.", values: "B2C | B2B | B2B2C" },
     { name: "status", type: "Varchar", description: "Estado do checkout.", values: "DRAFT | CHECKOUT | COMPLETED | CANCELED | EXPIRED" },
     { name: "currency", type: "Char(3)", description: "Moeda do carrinho.", values: "BRL" },
     { name: "subtotal_amount", type: "Decimal(12,2)", description: "Subtotal antes de descontos." },
@@ -439,6 +495,19 @@ const entityAttributes = {
     { name: "name", type: "Varchar", description: "Nome exibido." },
     { name: "provider", type: "Varchar", description: "Gateway ou adquirente." },
     { name: "active", type: "Boolean", description: "Indica se o meio esta habilitado." },
+    { name: "created_at", type: "Timestamp", description: "Data de criacao." },
+    { name: "updated_at", type: "Timestamp", description: "Data da ultima atualizacao." }
+  ],
+  PAYMENT_METHOD_RULE: [
+    { name: "id", type: "Integer", description: "Identificador da linha." },
+    { name: "scope", type: "Varchar", description: "Nivel da regra.", values: "GLOBAL | SEGMENT | PRODUCT" },
+    { name: "product_id", type: "Integer", description: "Produto da excecao, quando houver." },
+    { name: "commercial_segment", type: "Varchar", description: "Segmento da regra, quando houver.", values: "B2C | B2B | B2B2C" },
+    { name: "payment_method_id", type: "Integer", description: "Meio liberado pela regra." },
+    { name: "priority", type: "Integer", description: "Ordem de precedencia da regra." },
+    { name: "active", type: "Boolean", description: "Indica se a regra esta habilitada." },
+    { name: "valid_from", type: "Timestamp", description: "Inicio da vigencia da regra." },
+    { name: "valid_to", type: "Timestamp", description: "Fim da vigencia da regra." },
     { name: "created_at", type: "Timestamp", description: "Data de criacao." },
     { name: "updated_at", type: "Timestamp", description: "Data da ultima atualizacao." }
   ],
