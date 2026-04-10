@@ -1,188 +1,340 @@
 const sections = [
   {
-    label: "Visao Geral",
-    title: "01. Modelo minimo do sistema",
-    copy: `Esta primeira versao da wiki documenta apenas o necessario para vender, montar o checkout e registrar o pagamento.
-
-### O que existe na v1
-
-- \`product\`: catalogo vendavel.
-- \`cart\`: checkout com totais e status.
-- \`cart_item\`: itens do carrinho com fotografia de preco.
-- \`payment_method\`: catalogo de meios de pagamento.
-- \`cart_payment\`: registro do pagamento do carrinho.
-
-### Regra de evolucao
-
-A proxima camada so entra quando existir uma necessidade real de negocio. O objetivo e evitar supermodelagem no comeco e manter a narrativa simples.`,
+    label: "Base",
+    title: "01. Escopo",
+    copy: `- \`product\`: catalogo base.
+- \`product_version\`: periodo, preco, bonus e historico comercial do mesmo produto.
+- \`cart\`: checkout com status e totais.
+- \`cart_item\`: snapshot da versao escolhida.
+- \`payment_method\`: meios de pagamento disponiveis.
+- \`cart_payment\`: tentativa de pagamento ligada ao carrinho.`,
     diagram: `erDiagram
-  PRODUCT ||--o{ CART_ITEM : "1:N"
+  PRODUCT ||--o{ PRODUCT_VERSION : "1:N"
+  PRODUCT_VERSION ||--o{ CART_ITEM : "1:N"
   CART ||--o{ CART_ITEM : "1:N"
   CART ||--o{ CART_PAYMENT : "1:N"
-  PAYMENT_METHOD ||--o{ CART_PAYMENT : "1:N"`,
+  PAYMENT_METHOD ||--o{ CART_PAYMENT : "1:N"`
   },
   {
     label: "Produto",
-    title: "02. Catalogo e preco base",
-    copy: `Produto e a menor unidade vendavel do sistema. Na primeira entrega ele precisa apenas de identificacao, nome, preco, moeda e status.
-
-O preco do produto e a fotografia atual do catalogo. Quando o item entra no carrinho, esse valor e copiado para preservar o historico da compra.
-
-### O que fica fora desta versao
-
-- cliente normalizado
-- variacoes de produto
-- bundle
-- recorrencia
-- cupom`,
+    title: "02. Produto",
+    copy: `Produto e o catalogo base. Periodo, preco, bonus e vigencia ficam em \`product_version\`. \`valid_to\` nulo significa versao vigente, nao versao vitalicia.`,
+    tables: [
+      {
+        title: "Valores controlados",
+        columns: ["Campo", "Descricao", "Valores"],
+        rows: [
+          ["status", "Disponibilidade do produto.", "ACTIVE | INACTIVE"],
+          ["currency", "Moeda usada nas versoes comerciais.", "BRL"]
+        ]
+      },
+      {
+        title: "Historico comercial",
+        columns: ["Versao", "Periodo", "Bonus", "Preco", "valid_from", "valid_to"],
+        rows: [
+          ["1", "12 meses", "0", "BRL 199.90", "2026-01-01", "2026-03-31"],
+          ["2", "12 meses", "2", "BRL 199.90", "2026-04-01", "NULL"],
+          ["3", "24 meses", "0", "BRL 349.90", "2026-01-01", "NULL"]
+        ]
+      }
+    ],
     diagram: `erDiagram
   PRODUCT {
     INTEGER id
     VARCHAR sku
     VARCHAR name
-    DECIMAL price
+  }
+  PRODUCT ||--o{ PRODUCT_VERSION : "1:N"
+  PRODUCT_VERSION {
+    INTEGER id
+    INTEGER product_id
+    INTEGER access_months
+    INTEGER bonus_months
+    DECIMAL_12_2 price_amount
+    CHAR_3 currency
+    TIMESTAMP valid_from
+    TIMESTAMP valid_to
   }`,
-    sql: `INSERT INTO product (id, sku, name, description, price, currency, status, created_at, updated_at)
+    subsections: [
+      {
+        title: "Versao comercial",
+        copy: `Cada linha registra uma oferta do mesmo produto. Quando periodo, preco ou bonus mudam, a linha anterior fecha e uma nova linha entra no ar. A versao atual pode ficar com \`valid_to\` nulo ate ser substituida.`,
+        diagram: `erDiagram
+  PRODUCT ||--o{ PRODUCT_VERSION : "1:N"`
+      },
+      {
+        title: "Historico comercial",
+        copy: `A nova oferta nao altera o registro anterior. O historico fica na propria tabela de versao. \`valid_to\` nulo identifica a versao ainda vigente.`,
+        diagram: `flowchart LR
+  V1["12m / bonus 0 / BRL 199.90"] --> V2["12m / bonus 2 / BRL 199.90"]
+  V2 --> V3["24m / bonus 0 / BRL 349.90"]`,
+        sql: `UPDATE product_version
+SET valid_to = '2026-03-31'
+WHERE id = 1;
+
+INSERT INTO product_version (id, product_id, access_months, bonus_months, price_amount, currency, valid_from, valid_to, created_at, updated_at)
 VALUES
-  (1, 'CURSO-IA', 'Curso de IA aplicado', 'Produto digital principal', 199.90, 'BRL', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  (2, 'MENTORIA-PLUS', 'Mentoria Plus', 'Oferta premium com acompanhamento', 499.90, 'BRL', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`
+  (2, 1, 12, 2, 199.90, 'BRL', '2026-04-01', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (3, 1, 24, 0, 349.90, 'BRL', '2026-01-01', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`
+      }
+    ],
+    sql: `INSERT INTO product (id, sku, name, description, status, created_at, updated_at)
+VALUES
+  (1, 'CURSO-IA', 'Curso de IA aplicado', 'Produto digital principal', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+INSERT INTO product_version (id, product_id, access_months, bonus_months, price_amount, currency, valid_from, valid_to, created_at, updated_at)
+VALUES
+  (1, 1, 12, 0, 199.90, 'BRL', '2026-01-01', '2026-03-31', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (2, 1, 12, 2, 199.90, 'BRL', '2026-04-01', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (3, 1, 24, 0, 349.90, 'BRL', '2026-01-01', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`
   },
   {
-    label: "Checkout",
-    title: "03. Carrinho como fotografia da compra",
-    copy: `Carrinho representa a intencao de compra e organiza o fechamento da venda.
-
-Ele guarda o comprador de referencia, o status da jornada e os totais calculados a partir dos itens.
-
-### Regras principais
-
-- o carrinho guarda o subtotal, o desconto e o total final
-- \`cart_item\` registra o valor unitario no momento do checkout
-- o preco do item no carrinho nao deve mudar retroativamente quando o catalogo mudar
-- a primeira modelagem trata o checkout como simples e reprodutivel`,
+    label: "Carrinho",
+    title: "03. Carrinho",
+    copy: `O carrinho guarda o snapshot da versao escolhida. Mudancas na oferta nao alteram item ja salvo.`,
+    tables: [
+      {
+        title: "Valores controlados",
+        columns: ["Campo", "Descricao", "Valores"],
+        rows: [
+          ["status", "Estado do checkout.", "DRAFT | CHECKOUT | COMPLETED | CANCELED | EXPIRED"],
+          ["currency", "Moeda do carrinho.", "BRL"]
+        ]
+      },
+      {
+        title: "Snapshot do item",
+        columns: ["Campo", "Origem", "Uso"],
+        rows: [
+          ["product_version_id", "product_version.id", "Referencia da oferta escolhida."],
+          ["access_months", "product_version.access_months", "Periodo base congelado."],
+          ["bonus_months", "product_version.bonus_months", "Bonus congelado."],
+          ["total_access_months", "access_months + bonus_months", "Prazo final entregue."],
+          ["unit_price", "product_version.price_amount", "Preco congelado no carrinho."],
+          ["currency", "product_version.currency", "Moeda congelada no item."]
+        ]
+      },
+      {
+        title: "Cenarios do checkout",
+        columns: ["Momento", "cart.status", "cart_payment.status", "Leitura"],
+        rows: [
+          ["Carrinho aberto", "DRAFT", "-", "Itens podem mudar."],
+          ["Meio escolhido", "CHECKOUT", "PENDING", "cart_payment criado."],
+          ["Aguardando resposta", "CHECKOUT", "PENDING", "Fluxo assincrono em aberto."],
+          ["Sucesso", "COMPLETED", "APPROVED", "Carrinho fechado."],
+          ["Falha", "CHECKOUT", "FAILED", "Nova tentativa permitida."]
+        ]
+      }
+    ],
     diagram: `erDiagram
   CART ||--o{ CART_ITEM : "1:N"
-  PRODUCT ||--o{ CART_ITEM : "1:N"`,
+  PRODUCT_VERSION ||--o{ CART_ITEM : "1:N"`,
+    subsections: [
+      {
+        title: "Ciclo do checkout",
+        copy: `O usuario abre o carrinho, escolhe a versao comercial e o item grava o snapshot. Depois disso, o registro do produto pode mudar sem afetar o item ja criado.`,
+        diagram: `sequenceDiagram
+  participant U as Usuario
+  participant C as cart
+  participant V as product_version
+  participant I as cart_item
+  participant P as cart_payment
+
+  U->>C: abre carrinho
+  C-->>U: cart DRAFT
+  U->>V: escolhe versao
+  C->>I: grava snapshot da versao
+  C->>C: status CHECKOUT
+  U->>P: avanca para pagamento
+  C->>P: cria cart_payment PENDING`
+      },
+      {
+        title: "Exemplo da compra",
+        copy: `A oferta ativa de 12 meses com 2 meses de bonus entra no carrinho como 14 meses de acesso. O preco do item fica congelado no fechamento.`,
+        tables: [
+          {
+            title: "Snapshot do exemplo",
+            columns: ["Tabela", "Dados", "Leitura"],
+            rows: [
+              ["product_version", "id=2 | access_months=12 | bonus_months=2 | price_amount=199.90", "Oferta usada no fechamento."],
+              ["cart_item", "product_version_id=2 | access_months=12 | bonus_months=2 | total_access_months=14 | unit_price=199.90", "Snapshot do carrinho."],
+              ["cart_payment", "status=PENDING -> APPROVED", "Tentativa de pagamento concluida com sucesso."]
+            ]
+          }
+        ],
+        diagram: `sequenceDiagram
+  participant U as Usuario
+  participant C as cart
+  participant V as product_version
+  participant I as cart_item
+  participant P as cart_payment
+  participant G as Gateway
+
+  U->>C: abre carrinho
+  U->>V: seleciona versao 2
+  C->>I: grava product_version_id=2
+  C->>I: grava total_access_months=14
+  C->>P: cria cart_payment PENDING
+  G-->>P: APPROVED
+  P->>C: marca COMPLETED`
+      }
+    ],
     sql: `INSERT INTO cart (id, buyer_reference, status, currency, subtotal_amount, discount_amount, total_amount, expires_at, created_at, updated_at)
 VALUES
   (1, 'BUYER-1001', 'DRAFT', 'BRL', 199.90, 0.00, 199.90, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
-INSERT INTO cart_item (id, cart_id, product_id, quantity, unit_price, total_price, created_at, updated_at)
+INSERT INTO cart_item (id, cart_id, product_version_id, quantity, unit_price, total_price, access_months, bonus_months, total_access_months, created_at, updated_at)
 VALUES
-  (1, 1, 1, 1, 199.90, 199.90, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`
+  (1, 1, 2, 1, 199.90, 199.90, 12, 2, 14, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`
   },
   {
     label: "Pagamento",
-    title: "04. Meios e registro de pagamento",
-    copy: `Pagamento registra a forma escolhida e o resultado da transacao.
-
-O primeiro modelo considera um registro por carrinho, suficiente para ler o fluxo inicial sem antecipar orquestracao de multiplas tentativas.
-
-### Estados esperados
-
-- \`PENDING\`
-- \`AUTHORIZED\`
-- \`CAPTURED\`
-- \`FAILED\`
-- \`CANCELED\``,
+    title: "04. Pagamento",
+    copy: `A tentativa entra em PENDING. Cartao aprova ou recusa na hora. PIX, NuPay e PayPal podem confirmar depois; enquanto isso, a linha permanece em PENDING.`,
+    tables: [
+      {
+        title: "Valores controlados",
+        columns: ["Campo", "Descricao", "Valores"],
+        rows: [
+          ["status", "Estado da tentativa.", "PENDING | APPROVED | FAILED"],
+          ["payment_method.code", "Codigo do meio de pagamento.", "PIX | CARD | PAYPAL | NUPAY"]
+        ]
+      },
+      {
+        title: "Resposta da tentativa",
+        columns: ["Status", "Leitura", "Efeito"],
+        rows: [
+          ["PENDING", "Aguardando retorno do provedor.", "Carrinho segue em CHECKOUT."],
+          ["APPROVED", "Pagamento aceito.", "Carrinho pode fechar em COMPLETED."],
+          ["FAILED", "Pagamento recusado.", "Carrinho segue em CHECKOUT para nova tentativa."]
+        ]
+      }
+    ],
     diagram: `erDiagram
   PAYMENT_METHOD ||--o{ CART_PAYMENT : "1:N"
   CART ||--o{ CART_PAYMENT : "1:N"`,
+    subsections: [
+      {
+        title: "Ciclo do pagamento",
+        copy: `O estado final sai do provedor. Se a resposta nao vem na hora, a tentativa permanece em PENDING ate a confirmacao.`,
+        diagram: `stateDiagram-v2
+  [*] --> PENDING
+  PENDING --> APPROVED: aprovacao
+  PENDING --> FAILED: recusa
+  APPROVED --> [*]
+  FAILED --> [*]`
+      }
+    ],
     sql: `INSERT INTO payment_method (id, code, name, provider, active, created_at, updated_at)
 VALUES
   (1, 'PIX', 'Pix', 'BRADESCO', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  (2, 'CARD', 'Cartao de credito', 'STRIPE', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+  (2, 'CARD', 'Cartao de credito', 'STRIPE', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (3, 'PAYPAL', 'PayPal', 'PAYPAL', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (4, 'NUPAY', 'NuPay', 'NUBANK', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
-INSERT INTO cart_payment (id, cart_id, payment_method_id, amount, status, provider_reference, authorization_code, failure_reason, authorized_at, captured_at, failed_at, created_at, updated_at)
+INSERT INTO cart_payment (id, cart_id, payment_method_id, amount, status, provider_reference, authorization_code, failure_reason, approved_at, failed_at, created_at, updated_at)
 VALUES
-  (1, 1, 1, 199.90, 'AUTHORIZED', 'tx_98231', 'AUTH-4458', NULL, CURRENT_TIMESTAMP, NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`
+  (1, 1, 2, 199.90, 'PENDING', NULL, NULL, NULL, NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`
   },
   {
     label: "Evolucao",
-    title: "05. Evolucao incremental e regras dos agentes",
-    copy: `A evolucao deve acontecer em pequenos passos e sempre com um motivo de negocio claro.
+    title: "05. Evolucao",
+    copy: `- \`customer\`
+- \`coupon\`
+- \`refund\`
+- \`chargeback\`
+- \`reconciliation\`
 
-### Proximas extensoes possiveis
-
-- \`customer\`: identidade do comprador.
-- \`coupon\`: desconto e promocao.
-- \`payment_attempt\`: tentativas por gateway.
-- \`refund\` e \`chargeback\`: tratamento de retorno financeiro.
-- \`reconciliation\`: conferencia entre sistema e adquirente.
-
-### Regras permanentes do projeto
+Regras:
 
 - comecar simples
-- evoluir de forma incremental
+- evoluir em passos pequenos
 - atualizar wiki e schema juntos
-- nao adicionar tabela apenas porque ela pode ser util no futuro
-- quando a regra de negocio mudar, revisar \`AGENTS.md\``,
+- evitar tabela sem necessidade
+- revisar \`AGENTS.md\` quando a regra mudar`,
     diagram: `flowchart LR
-  V1[Produto + Carrinho + Pagamento] --> V2[Cliente + Cupom]
-  V2 --> V3[Tentativas + Webhooks]
-  V3 --> V4[Estorno + Chargeback + Conciliacao]`
+  V1[Produto + Versao comercial + Carrinho + Pagamento] --> V2[Cliente + Cupom]
+  V2 --> V3[Estorno + Chargeback]
+  V3 --> V4[Conciliacao]`
   }
 ];
 
 const entityAttributes = {
   PRODUCT: [
-    "id: Integer",
-    "sku: Varchar",
-    "name: Varchar",
-    "description: Varchar",
-    "price: Decimal(12,2)",
-    "currency: Char(3)",
-    "status: Varchar",
-    "created_at: Timestamp",
-    "updated_at: Timestamp"
+    { name: "id", type: "Integer", description: "Identificador da linha." },
+    { name: "sku", type: "Varchar", description: "SKU unico do produto." },
+    { name: "name", type: "Varchar", description: "Nome comercial." },
+    { name: "description", type: "Varchar", description: "Descricao opcional." },
+    { name: "status", type: "Varchar", description: "Disponibilidade do produto.", values: "ACTIVE | INACTIVE" },
+    { name: "created_at", type: "Timestamp", description: "Data de criacao." },
+    { name: "updated_at", type: "Timestamp", description: "Data da ultima atualizacao." }
+  ],
+  PRODUCT_VERSION: [
+    { name: "id", type: "Integer", description: "Identificador da linha." },
+    { name: "product_id", type: "Integer", description: "Produto pai." },
+    { name: "access_months", type: "Integer", description: "Periodo base da oferta." },
+    { name: "bonus_months", type: "Integer", description: "Meses extras da oferta." },
+    { name: "price_amount", type: "Decimal(12,2)", description: "Preco da versao comercial." },
+    { name: "currency", type: "Char(3)", description: "Moeda da oferta.", values: "BRL" },
+    { name: "valid_from", type: "Timestamp", description: "Inicio da vigencia comercial." },
+    { name: "valid_to", type: "Timestamp", description: "Fim da vigencia comercial. Null enquanto a versao estiver ativa." },
+    { name: "created_at", type: "Timestamp", description: "Data de criacao." },
+    { name: "updated_at", type: "Timestamp", description: "Data da ultima atualizacao." }
   ],
   CART: [
-    "id: Integer",
-    "buyer_reference: Varchar",
-    "status: Varchar",
-    "currency: Char(3)",
-    "subtotal_amount: Decimal(12,2)",
-    "discount_amount: Decimal(12,2)",
-    "total_amount: Decimal(12,2)",
-    "expires_at: Timestamp",
-    "created_at: Timestamp",
-    "updated_at: Timestamp"
+    { name: "id", type: "Integer", description: "Identificador da linha." },
+    { name: "buyer_reference", type: "Varchar", description: "Referencia do comprador." },
+    { name: "status", type: "Varchar", description: "Estado do checkout.", values: "DRAFT | CHECKOUT | COMPLETED | CANCELED | EXPIRED" },
+    { name: "currency", type: "Char(3)", description: "Moeda do carrinho.", values: "BRL" },
+    { name: "subtotal_amount", type: "Decimal(12,2)", description: "Subtotal antes de descontos." },
+    { name: "discount_amount", type: "Decimal(12,2)", description: "Valor de desconto aplicado." },
+    { name: "total_amount", type: "Decimal(12,2)", description: "Total final do carrinho." },
+    { name: "expires_at", type: "Timestamp", description: "Momento de expiracao do carrinho." },
+    { name: "created_at", type: "Timestamp", description: "Data de criacao." },
+    { name: "updated_at", type: "Timestamp", description: "Data da ultima atualizacao." }
   ],
   CART_ITEM: [
-    "id: Integer",
-    "cart_id: Integer",
-    "product_id: Integer",
-    "quantity: Integer",
-    "unit_price: Decimal(12,2)",
-    "total_price: Decimal(12,2)",
-    "created_at: Timestamp",
-    "updated_at: Timestamp"
+    { name: "id", type: "Integer", description: "Identificador da linha." },
+    { name: "cart_id", type: "Integer", description: "Carrinho pai." },
+    { name: "product_version_id", type: "Integer", description: "Versao comercial referenciada." },
+    { name: "quantity", type: "Integer", description: "Quantidade do item." },
+    { name: "unit_price", type: "Decimal(12,2)", description: "Preco unitario no fechamento." },
+    { name: "total_price", type: "Decimal(12,2)", description: "Total do item." },
+    { name: "access_months", type: "Integer", description: "Periodo base congelado." },
+    { name: "bonus_months", type: "Integer", description: "Bonus congelado." },
+    { name: "total_access_months", type: "Integer", description: "Prazo final entregue." },
+    { name: "created_at", type: "Timestamp", description: "Data de criacao." },
+    { name: "updated_at", type: "Timestamp", description: "Data da ultima atualizacao." }
   ],
   PAYMENT_METHOD: [
-    "id: Integer",
-    "code: Varchar",
-    "name: Varchar",
-    "provider: Varchar",
-    "active: Boolean",
-    "created_at: Timestamp",
-    "updated_at: Timestamp"
+    { name: "id", type: "Integer", description: "Identificador da linha." },
+    { name: "code", type: "Varchar", description: "Codigo do meio de pagamento.", values: "PIX | CARD | PAYPAL | NUPAY" },
+    { name: "name", type: "Varchar", description: "Nome exibido." },
+    { name: "provider", type: "Varchar", description: "Gateway ou adquirente." },
+    { name: "active", type: "Boolean", description: "Indica se o meio esta habilitado." },
+    { name: "created_at", type: "Timestamp", description: "Data de criacao." },
+    { name: "updated_at", type: "Timestamp", description: "Data da ultima atualizacao." }
   ],
   CART_PAYMENT: [
-    "id: Integer",
-    "cart_id: Integer",
-    "payment_method_id: Integer",
-    "amount: Decimal(12,2)",
-    "status: Varchar",
-    "provider_reference: Varchar",
-    "authorization_code: Varchar",
-    "failure_reason: Varchar",
-    "authorized_at: Timestamp",
-    "captured_at: Timestamp",
-    "failed_at: Timestamp",
-    "created_at: Timestamp",
-    "updated_at: Timestamp"
+    { name: "id", type: "Integer", description: "Identificador da linha." },
+    { name: "cart_id", type: "Integer", description: "Carrinho da tentativa." },
+    { name: "payment_method_id", type: "Integer", description: "Meio de pagamento usado." },
+    { name: "amount", type: "Decimal(12,2)", description: "Valor da transacao." },
+    { name: "status", type: "Varchar", description: "Estado da tentativa.", values: "PENDING | APPROVED | FAILED" },
+    { name: "provider_reference", type: "Varchar", description: "Referencia do provedor." },
+    { name: "authorization_code", type: "Varchar", description: "Codigo retornado pelo provedor." },
+    { name: "failure_reason", type: "Varchar", description: "Motivo da falha, se houver." },
+    { name: "approved_at", type: "Timestamp", description: "Data da aprovacao." },
+    { name: "failed_at", type: "Timestamp", description: "Data da falha." },
+    { name: "created_at", type: "Timestamp", description: "Data de criacao." },
+    { name: "updated_at", type: "Timestamp", description: "Data da ultima atualizacao." }
   ]
 };
+
+const compactEntityKey = (value = "") => value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+
+const entityKeyLookup = Object.keys(entityAttributes)
+  .map((key) => ({ key, compact: compactEntityKey(key) }))
+  .sort((left, right) => right.compact.length - left.compact.length);
 
 const escapeHtml = (value = "") =>
   value
@@ -202,22 +354,98 @@ const slugify = (value = "") =>
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 
-const normalizeEntityKey = (label = "") =>
-  label
-    .trim()
-    .replace(/\s+/g, "_")
-    .replace(/[^A-Za-z0-9_]/g, "")
-    .toUpperCase();
+const assignSectionIds = (items, parentId = "") =>
+  items.map((section) => {
+    const id = parentId ? `${parentId}-${slugify(section.title)}` : slugify(section.title);
+    const subsections = section.subsections ? assignSectionIds(section.subsections, id) : [];
+    return { ...section, id, subsections };
+  });
+
+const renderTables = (tables = [], spacingClass = "mt-6") =>
+  tables
+    .map(
+      (table) => `
+        <div class="data-table-block ${spacingClass}">
+          <h3 class="data-table-title">${escapeHtml(table.title)}</h3>
+          <div class="data-table-scroll">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  ${table.columns.map((column) => `<th>${escapeHtml(column)}</th>`).join("")}
+                </tr>
+              </thead>
+              <tbody>
+                ${table.rows
+                  .map(
+                    (row) => `
+                      <tr>
+                        ${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}
+                      </tr>
+                    `
+                  )
+                  .join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `
+    )
+    .join("");
+
+const renderBlock = (block, { subsection = false } = {}) => {
+  const tag = subsection ? "article" : "section";
+  const blockClass = subsection ? "doc-subsection" : "doc-section";
+  const labelClass = subsection ? "doc-subsection-label" : "doc-label";
+  const titleClass = subsection ? "doc-subsection-title" : "doc-title";
+  const titleTag = subsection ? "h3" : "h2";
+  const copySpacing = subsection ? "mt-4" : "mt-6";
+  const tableSpacing = subsection ? "mt-4" : "mt-6";
+
+  return `
+    <${tag} class="${blockClass}" id="${block.id}">
+      ${block.label ? `<p class="${labelClass}">${escapeHtml(block.label)}</p>` : ""}
+      ${block.title ? `<${titleTag} class="${titleClass}">${escapeHtml(block.title)}</${titleTag}>` : ""}
+      ${block.copy ? `<div class="markdown-view ${copySpacing}">${renderMarkdown(block.copy)}</div>` : ""}
+      ${block.tables ? renderTables(block.tables, tableSpacing) : ""}
+      ${block.diagram
+        ? `
+          <div class="diagram-wrap ${subsection ? "mt-6" : "mt-8"}">
+            <p class="diagram-hint">Passe o mouse sobre uma entidade para ver os campos e descricoes.</p>
+            <pre class="mermaid">${escapeHtml(block.diagram)}</pre>
+          </div>
+        `
+        : ""}
+      ${block.sql
+        ? `
+          <details class="sql-example ${subsection ? "mt-6" : "mt-8"}">
+            <summary>Exemplo SQL</summary>
+            <pre><code class="language-sql">${escapeHtml(block.sql)}</code></pre>
+          </details>
+        `
+        : ""}
+      ${block.subsections && block.subsections.length ? `<div class="doc-subsections">${block.subsections.map((subsectionBlock) => renderBlock(subsectionBlock, { subsection: true })).join("")}</div>` : ""}
+    </${tag}>
+  `;
+};
 
 const renderSidebar = (items) => `
   <nav class="doc-sidebar-card">
-    <p class="doc-sidebar-label">Navegacao</p>
+    <p class="doc-sidebar-label">Secoes</p>
     <div class="doc-sidebar-links">
       ${items
         .map(
           (section) => `
             <div class="doc-sidebar-group">
-              <a class="doc-sidebar-link" href="#${section.id}">${section.title}</a>
+              <a class="doc-sidebar-link" href="#${section.id}">${escapeHtml(section.title)}</a>
+              ${section.subsections && section.subsections.length
+                ? `
+                  <div class="doc-sidebar-sublinks">
+                    ${section.subsections
+                      .map((subsection) => `<a class="doc-sidebar-sublink" href="#${subsection.id}">${escapeHtml(subsection.title)}</a>`)
+                      .join("")}
+                  </div>
+                `
+                : ""}
             </div>
           `
         )
@@ -227,32 +455,29 @@ const renderSidebar = (items) => `
 `;
 
 const renderSection = (section) => `
-  <section class="doc-section" id="${section.id}">
-    <div class="doc-content">
-      <p class="doc-label">${section.label}</p>
-      <h2 class="doc-title">${section.title}</h2>
-      ${section.copy ? `<div class="markdown-view mt-6">${renderMarkdown(section.copy)}</div>` : ""}
-      ${section.diagram
-        ? `
-          <div class="diagram-wrap mt-8">
-            <p class="diagram-hint">Passe o mouse sobre uma entidade para ver os campos do schema.</p>
-            <pre class="mermaid">${escapeHtml(section.diagram)}</pre>
-          </div>
-        `
-        : ""}
-      ${section.sql
-        ? `
-          <details class="sql-example mt-8">
-            <summary>Exemplo SQL</summary>
-            <pre><code class="language-sql">${escapeHtml(section.sql)}</code></pre>
-          </details>
-        `
-        : ""}
-    </div>
-  </section>
+  ${renderBlock(section)}
 `;
 
 let tooltip;
+
+const extractEntityName = (node) => {
+  const candidates = [
+    node.getAttribute?.("data-id"),
+    node.getAttribute?.("id"),
+    node.querySelector?.("span.nodeLabel")?.textContent,
+    node.querySelector?.("foreignObject .nodeLabel")?.textContent,
+    node.querySelector?.("text")?.textContent,
+    node.textContent
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    const compactCandidate = compactEntityKey(candidate);
+    const match = entityKeyLookup.find(({ compact }) => compactCandidate.startsWith(compact));
+    if (match) return match.key;
+  }
+
+  return null;
+};
 
 const showTooltip = (event, entityName) => {
   const attributes = entityAttributes[entityName];
@@ -265,13 +490,16 @@ const showTooltip = (event, entityName) => {
         <tr>
           <th>Campo</th>
           <th>Tipo</th>
+          <th>Descricao</th>
         </tr>
       </thead>
       <tbody>
         ${attributes
           .map((attribute) => {
-            const [name, type] = attribute.split(": ");
-            return `<tr><td><code>${name}</code></td><td>${type}</td></tr>`;
+            const description = attribute.values
+              ? `${attribute.description} Valores: ${attribute.values}.`
+              : attribute.description;
+            return `<tr><td><code>${attribute.name}</code></td><td>${attribute.type}</td><td>${escapeHtml(description)}</td></tr>`;
           })
           .join("")}
       </tbody>
@@ -289,8 +517,8 @@ const hideTooltip = () => {
 const moveTooltip = (event) => {
   if (!tooltip) return;
   const offset = 18;
-  const maxLeft = Math.max(16, window.innerWidth - 440);
-  const maxTop = Math.max(16, window.innerHeight - 240);
+  const maxLeft = Math.max(16, window.innerWidth - 560);
+  const maxTop = Math.max(16, window.innerHeight - 300);
   tooltip.style.left = `${Math.min(event.clientX + offset, maxLeft)}px`;
   tooltip.style.top = `${Math.min(event.clientY + offset, maxTop)}px`;
 };
@@ -298,28 +526,48 @@ const moveTooltip = (event) => {
 const bindEntityHover = () => {
   document.querySelectorAll(".diagram-wrap").forEach((wrap) => {
     if (wrap.dataset.bound === "true") return;
-    const nodes = wrap.querySelectorAll("svg g.node");
-    if (!nodes.length) return;
-
-    wrap.dataset.bound = "true";
+    const nodes = wrap.querySelectorAll("svg g");
 
     nodes.forEach((node) => {
-      const entityName = normalizeEntityKey(node.textContent || "");
-      if (!entityAttributes[entityName]) return;
+      const entityName = extractEntityName(node);
+      if (!entityName) return;
 
       node.classList.add("interactive-entity");
+      node.dataset.entityName = entityName;
       node.addEventListener("mouseenter", (event) => showTooltip(event, entityName));
       node.addEventListener("mousemove", moveTooltip);
       node.addEventListener("mouseleave", hideTooltip);
     });
+
+    wrap.addEventListener("mousemove", (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        hideTooltip();
+        return;
+      }
+
+      const node = target.closest("g");
+      if (!node || !wrap.contains(node)) {
+        hideTooltip();
+        return;
+      }
+
+      const entityName = node.dataset.entityName || extractEntityName(node);
+      if (!entityName || !entityAttributes[entityName]) {
+        hideTooltip();
+        return;
+      }
+
+      showTooltip(event, entityName);
+    });
+
+    wrap.addEventListener("mouseleave", hideTooltip);
+    wrap.dataset.bound = "true";
   });
 };
 
 document.addEventListener("DOMContentLoaded", async () => {
-  const sectionsWithIds = sections.map((section) => ({
-    ...section,
-    id: slugify(section.title)
-  }));
+  const sectionsWithIds = assignSectionIds(sections);
 
   const sidebarRoot = document.getElementById("sidebar-root");
   if (sidebarRoot) sidebarRoot.innerHTML = renderSidebar(sectionsWithIds);
