@@ -136,7 +136,8 @@ body::before {
   margin-top: 1.25rem;
 }
 
-.hero-tags span {
+.hero-tags span,
+.hero-tags a {
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
@@ -146,6 +147,14 @@ body::before {
   font-size: 0.85rem;
   font-weight: 600;
   color: rgba(226, 232, 240, 0.92);
+}
+
+.hero-tags a {
+  text-decoration: none;
+}
+
+.hero-tags a:hover {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .hero-panel {

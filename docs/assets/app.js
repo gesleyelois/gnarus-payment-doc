@@ -18,7 +18,7 @@ const sections = [
   {
     label: "Produto",
     title: "02. Produto",
-    copy: `Produto e o catalogo base. Periodo, preco, bonus e vigencia ficam em \`product_version\`. \`valid_to\` nulo significa versao vigente, nao versao vitalicia.`,
+    copy: `Produto e o catalogo base. \`sku\` identifica o produto na camada publica. Periodo, preco, bonus e vigencia ficam em \`product_version\`. \`valid_to\` nulo significa versao vigente, nao versao vitalicia. A tela de produto pode listar a versao vigente resolvida por \`sku\`.`,
     tables: [
       {
         title: "Valores controlados",
@@ -26,6 +26,14 @@ const sections = [
         rows: [
           ["status", "Disponibilidade do produto.", "ACTIVE | INACTIVE"],
           ["currency", "Moeda usada nas versoes comerciais.", "BRL"]
+        ]
+      },
+      {
+        title: "Identificacao publica",
+        columns: ["Campo", "Regra", "Exemplo"],
+        rows: [
+          ["sku", "Codigo publico do produto.", "plus"],
+          ["sku", "Usado para resolver o produto na camada publica.", "/compra/plus"]
         ]
       },
       {
@@ -58,13 +66,13 @@ const sections = [
     subsections: [
       {
         title: "Versao comercial",
-        copy: `Cada linha registra uma oferta do mesmo produto. Quando periodo, preco ou bonus mudam, a linha anterior fecha e uma nova linha entra no ar. A versao atual pode ficar com \`valid_to\` nulo ate ser substituida.`,
+        copy: `Cada linha registra uma oferta do mesmo produto. Quando periodo, preco ou bonus mudam, a linha anterior fecha e uma nova linha entra no ar. A versao atual pode ficar com \`valid_to\` nulo ate ser substituida. O \`sku\` resolve o produto, e a camada publica mostra apenas a versao vigente desse \`sku\`.`,
         diagram: `erDiagram
   PRODUCT ||--o{ PRODUCT_VERSION : "1:N"`
       },
       {
         title: "Historico comercial",
-        copy: `A nova oferta nao altera o registro anterior. O historico fica na propria tabela de versao. \`valid_to\` nulo identifica a versao ainda vigente.`,
+        copy: `A nova oferta nao altera o registro anterior. O historico fica na propria tabela de versao. \`valid_to\` nulo identifica a versao ainda vigente. Se existir mais de uma versao vigente para o mesmo \`sku\`, isso e erro de cadastro.`,
         diagram: `flowchart LR
   V1["12m / bonus 0 / BRL 199.90"] --> V2["12m / bonus 2 / BRL 199.90"]
   V2 --> V3["24m / bonus 0 / BRL 349.90"]`,
@@ -91,7 +99,7 @@ VALUES
   {
     label: "Carrinho",
     title: "03. Carrinho",
-    copy: `O carrinho guarda o snapshot da versao escolhida. Mudancas na oferta nao alteram item ja salvo.`,
+    copy: `O carrinho guarda o snapshot da versao escolhida. \`access_months\` e \`bonus_months\` repetem os termos da oferta no momento da compra. \`quantity\` indica quantas unidades daquela linha foram compradas. Ao reabrir o carrinho, a interface usa \`cart_item.product_version_id\`, nao \`product_id\`.`,
     tables: [
       {
         title: "Valores controlados",
@@ -105,10 +113,11 @@ VALUES
         title: "Snapshot do item",
         columns: ["Campo", "Origem", "Uso"],
         rows: [
-          ["product_version_id", "product_version.id", "Referencia da oferta escolhida."],
-          ["access_months", "product_version.access_months", "Periodo base congelado."],
-          ["bonus_months", "product_version.bonus_months", "Bonus congelado."],
-          ["total_access_months", "access_months + bonus_months", "Prazo final entregue."],
+          ["product_version_id", "product_version.id", "Referencia da oferta escolhida e versao exibida ao reabrir o carrinho."],
+          ["quantity", "Definido no carrinho", "Unidades compradas. Assinatura costuma ser 1; evento pode ser maior."],
+          ["access_months", "product_version.access_months", "Periodo base contratado na compra."],
+          ["bonus_months", "product_version.bonus_months", "Meses extras concedidos na compra."],
+          ["total_access_months", "access_months + bonus_months", "Prazo final de acesso."],
           ["unit_price", "product_version.price_amount", "Preco congelado no carrinho."],
           ["currency", "product_version.currency", "Moeda congelada no item."]
         ]
@@ -156,7 +165,7 @@ VALUES
             columns: ["Tabela", "Dados", "Leitura"],
             rows: [
               ["product_version", "id=2 | access_months=12 | bonus_months=2 | price_amount=199.90", "Oferta usada no fechamento."],
-              ["cart_item", "product_version_id=2 | access_months=12 | bonus_months=2 | total_access_months=14 | unit_price=199.90", "Snapshot do carrinho."],
+              ["cart_item", "product_version_id=2 | quantity=1 | access_months=12 | bonus_months=2 | total_access_months=14 | unit_price=199.90", "Snapshot do carrinho."],
               ["cart_payment", "status=PENDING -> APPROVED", "Tentativa de pagamento concluida com sucesso."]
             ]
           }
@@ -236,6 +245,47 @@ VALUES
   (1, 1, 2, 199.90, 'PENDING', NULL, NULL, NULL, NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`
   },
   {
+    page: "regras",
+    title: "Regras",
+    copy: `Resolucao publica do catalogo e do checkout. A pagina publica resolve o produto por \`sku\`; o carrinho mostra o snapshot salvo em \`cart_item.product_version_id\`.`,
+    tables: [
+      {
+        title: "Resolucao publica",
+        columns: ["Regra", "Fonte", "Resultado"],
+        rows: [
+          ["sku", "product.sku", "Resolve o produto publico."],
+          ["versao vigente", "product_version.valid_to = NULL", "Exibe a oferta atual daquele sku."],
+          ["versoes concorrentes", "mais de uma linha vigente no mesmo sku", "Erro de cadastro."]
+        ]
+      },
+      {
+        title: "Origem dos campos do carrinho",
+        columns: ["Campo", "Fonte", "Regra"],
+        rows: [
+          ["buyer_reference", "sessao, token ou customer futuro", "Identifica o dono do checkout."],
+          ["subtotal_amount", "soma de cart_item.total_price", "Resumo dos itens."],
+          ["discount_amount", "cupom ou campanha futura", "Zero na v1."],
+          ["total_amount", "subtotal_amount - discount_amount", "Total cobrado."]
+        ]
+      },
+      {
+        title: "Leitura do carrinho",
+        columns: ["Cenario", "Estado", "Leitura"],
+        rows: [
+          ["abertura", "DRAFT", "Carrinho criado ou reaberto."],
+          ["selecao", "CHECKOUT", "Item definido e pagamento disponivel."],
+          ["sucesso", "COMPLETED", "Pagamento aprovado."],
+          ["falha", "CHECKOUT", "Nova tentativa permitida."]
+        ]
+      }
+    ],
+    diagram: `flowchart LR
+  SKU[sku] --> PRODUCT[product]
+  PRODUCT --> VERSION[product_version vigente]
+  VERSION --> ITEM[cart_item snapshot]
+  ITEM --> CART[cart totals]`
+  },
+  {
     label: "Evolucao",
     title: "05. Evolucao",
     copy: `- \`customer\`
@@ -243,8 +293,6 @@ VALUES
 - \`refund\`
 - \`chargeback\`
 - \`reconciliation\`
-
-Regras:
 
 - comecar simples
 - evoluir em passos pequenos
@@ -257,6 +305,11 @@ Regras:
   V3 --> V4[Conciliacao]`
   }
 ];
+
+const pageSections = {
+  overview: sections.filter((section) => !section.page),
+  regras: sections.filter((section) => section.page === "regras")
+};
 
 const entityAttributes = {
   PRODUCT: [
@@ -567,7 +620,9 @@ const bindEntityHover = () => {
 };
 
 document.addEventListener("DOMContentLoaded", async () => {
-  const sectionsWithIds = assignSectionIds(sections);
+  const pageId = document.body.dataset.docPage || "overview";
+  const sectionsToRender = pageSections[pageId] || pageSections.overview;
+  const sectionsWithIds = assignSectionIds(sectionsToRender);
 
   const sidebarRoot = document.getElementById("sidebar-root");
   if (sidebarRoot) sidebarRoot.innerHTML = renderSidebar(sectionsWithIds);
