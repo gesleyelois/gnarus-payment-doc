@@ -209,12 +209,23 @@ VALUES
         ]
       },
       {
+        title: "Campos de resultado",
+        columns: ["Campo", "Uso", "Quando preencher"],
+        rows: [
+          ["provider_reference", "Referencia externa da tentativa.", "Quando o provedor retorna um identificador da operacao."],
+          ["authorization_code", "Codigo de aprovacao ou autorizacao.", "Quando a tentativa termina em APPROVED e o provedor fornece esse dado."],
+          ["failure_reason", "Motivo ou codigo da recusa.", "Quando a tentativa termina em FAILED."],
+          ["approved_at", "Timestamp da conclusao com sucesso.", "Quando status vira APPROVED."],
+          ["failed_at", "Timestamp da conclusao com falha.", "Quando status vira FAILED."]
+        ]
+      },
+      {
         title: "Resposta da tentativa",
         columns: ["Status", "Leitura", "Efeito"],
         rows: [
-          ["PENDING", "Aguardando retorno do provedor.", "Carrinho segue em CHECKOUT."],
-          ["APPROVED", "Pagamento aceito.", "Carrinho pode fechar em COMPLETED."],
-          ["FAILED", "Pagamento recusado.", "Carrinho segue em CHECKOUT para nova tentativa."]
+          ["PENDING", "Aguardando retorno do provedor.", "authorization_code, failure_reason, approved_at e failed_at ficam nulos."],
+          ["APPROVED", "Pagamento aceito.", "authorization_code e approved_at podem ser preenchidos; failure_reason e failed_at ficam nulos."],
+          ["FAILED", "Pagamento recusado.", "failure_reason e failed_at podem ser preenchidos; authorization_code e approved_at ficam nulos."]
         ]
       }
     ],
@@ -426,11 +437,11 @@ const entityAttributes = {
     { name: "payment_method_id", type: "Integer", description: "Meio de pagamento usado." },
     { name: "amount", type: "Decimal(12,2)", description: "Valor da transacao." },
     { name: "status", type: "Varchar", description: "Estado da tentativa.", values: "PENDING | APPROVED | FAILED" },
-    { name: "provider_reference", type: "Varchar", description: "Referencia do provedor." },
-    { name: "authorization_code", type: "Varchar", description: "Codigo retornado pelo provedor." },
-    { name: "failure_reason", type: "Varchar", description: "Motivo da falha, se houver." },
-    { name: "approved_at", type: "Timestamp", description: "Data da aprovacao." },
-    { name: "failed_at", type: "Timestamp", description: "Data da falha." },
+    { name: "provider_reference", type: "Varchar", description: "Referencia externa da tentativa no provedor." },
+    { name: "authorization_code", type: "Varchar", description: "Codigo de aprovacao ou autorizacao retornado pelo provedor." },
+    { name: "failure_reason", type: "Varchar", description: "Codigo ou motivo da recusa retornado pelo provedor." },
+    { name: "approved_at", type: "Timestamp", description: "Timestamp da conclusao com sucesso." },
+    { name: "failed_at", type: "Timestamp", description: "Timestamp da conclusao com falha." },
     { name: "created_at", type: "Timestamp", description: "Data de criacao." },
     { name: "updated_at", type: "Timestamp", description: "Data da ultima atualizacao." }
   ]
