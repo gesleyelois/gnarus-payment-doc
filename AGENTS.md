@@ -50,8 +50,11 @@ Este projeto documenta uma modelagem incremental de pagamentos.
 - a pagina de regras deve registrar exemplos de retorno do gateway para `APPROVED` e `FAILED`, mostrando o mapeamento dos campos de `cart_payment`
 - produto e o catalogo da empresa; a variacao de periodo, preco, bonus e vigencia fica em `product_version`
 - `sku` e o codigo publico do produto
-- a camada publica resolve o produto por `sku` dentro da empresa e exibe apenas a versao vigente daquele `sku`
-- se houver mais de uma versao vigente para o mesmo `sku` dentro da mesma empresa, isso e erro de cadastro
+- `product_version.code` e o codigo publico da oferta comercial dentro do produto
+- a camada publica resolve a pagina do produto por `sku` dentro da empresa
+- a rota publica da oferta resolve `sku` + `product_version.code` dentro da empresa
+- o produto pode ter mais de uma `product_version` vigente ao mesmo tempo
+- se houver mais de uma `product_version` com o mesmo `code` para o mesmo produto, isso e erro de cadastro
 - `valid_to` nulo significa versao comercial ainda vigente, nao versao vitalicia
 - a tela de produto pode listar versoes vigentes; o carrinho sempre exibe o snapshot salvo em `cart_item.product_version_id`
 - nao criar um produto por periodo de acesso; usar versao comercial para 12m, 24m, 36m e ofertas

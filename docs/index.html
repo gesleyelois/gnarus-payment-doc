@@ -6,7 +6,7 @@
   <title>Sistema de pagamento</title>
   <meta
     name="description"
-    content="Documentacao tecnica de empresa, unidade de negocio, produto, bundle versionado, ofertas de checkout, versao comercial, carrinho e pagamento."
+    content="Documentacao tecnica de empresa, catalogo, checkout, pagamento, regras de negocio e fluxos."
   >
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,61 +17,27 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/languages/sql.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js" defer></script>
+  <script src="./assets/content.js" defer></script>
   <script src="./assets/app.js" defer></script>
 </head>
 <body data-doc-page="overview">
   <div class="page-shell">
     <header class="hero">
-      <div class="hero-surface">
-        <div class="hero-badge">Versao 1</div>
-        <div class="hero-grid">
-          <div class="hero-copy-block">
-            <p class="hero-kicker">Wiki</p>
-            <h1 class="hero-title">Sistema de pagamento</h1>
-            <p class="hero-copy">
-              Empresa, unidade de negocio, produto, bundle versionado, ofertas de checkout, versao comercial, carrinho e pagamento.
-            </p>
-            <div class="hero-tags" aria-label="Pilares da modelagem">
-              <span>Empresa</span>
-              <span>BU</span>
-              <span>Produto</span>
-              <span>Bundle</span>
-              <span>Bundle version</span>
-              <span>Ofertas</span>
-              <span>Versao comercial</span>
-              <span>Segmento</span>
-              <span>Carrinho</span>
-              <span>Pagamento</span>
-              <span>Schema</span>
-              <a href="./regras.html">Regras e fluxos</a>
-            </div>
-          </div>
-          <div class="hero-panel">
-            <p class="hero-panel-title">Tópicos</p>
-            <ul class="hero-list">
-              <li>Empresa</li>
-              <li>Unidade de negocio</li>
-              <li>Produto</li>
-              <li>Bundle</li>
-              <li>Bundle version</li>
-              <li>Ofertas</li>
-              <li>Versao comercial</li>
-              <li>Segmento comercial</li>
-              <li>Carrinho</li>
-              <li>Pagamento</li>
-              <li>Evolucao</li>
-            </ul>
-          </div>
-        </div>
-      </div>
+      <div id="hero-root"></div>
     </header>
 
     <main class="page-main">
+      <div id="page-nav-root"></div>
+
       <div class="doc-layout">
         <aside class="doc-sidebar">
           <div id="sidebar-root"></div>
         </aside>
-        <div id="sections-root" class="doc-main"></div>
+
+        <div class="doc-main">
+          <div id="sections-root"></div>
+          <div id="pager-root"></div>
+        </div>
       </div>
     </main>
   </div>

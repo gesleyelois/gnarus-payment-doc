@@ -46,6 +46,7 @@ CREATE TABLE product (
 CREATE TABLE product_version (
   id INTEGER PRIMARY KEY,
   product_id INTEGER NOT NULL,
+  code VARCHAR(100) NOT NULL, -- public offer code within the product
   access_months INTEGER NOT NULL,
   bonus_months INTEGER NOT NULL DEFAULT 0,
   price_amount DECIMAL(12, 2) NOT NULL,
@@ -56,6 +57,8 @@ CREATE TABLE product_version (
   updated_at TIMESTAMP,
   CONSTRAINT fk_product_version_product
     FOREIGN KEY (product_id) REFERENCES product(id),
+  CONSTRAINT uk_product_version_product_code
+    UNIQUE (product_id, code),
   CONSTRAINT uk_product_version_history
     UNIQUE (product_id, access_months, bonus_months, valid_from)
 );
