@@ -100,41 +100,41 @@ window.DOC_SITE = (() => {
       kicker: "Visao geral",
       title: "Sistema de pagamento",
       summary:
-        "Esta wiki explica a modelagem por etapas. A leitura comeca no tenant, passa pelo catalogo, entra no checkout, chega ao pagamento e fecha nos fluxos que cruzam mais de uma entidade.",
+        "A leitura parte do tenant, passa pelo catalogo, entra no checkout e fecha no pagamento. No fim, Regras e fluxos junta o que atravessa mais de uma entidade.",
       tags: ["Empresa", "Catalogo", "Bundle", "Checkout", "Pagamento", "Fluxos"],
-      panelTitle: "Voce vai entender",
+      panelTitle: "Use este guia para",
       panelItems: [
-        "qual pagina ler primeiro",
-        "onde cada conceito mora",
-        "como a modelagem se conecta",
-        "em qual pagina esta o fluxo canonico"
+        "achar a ordem de leitura",
+        "bater o olho em onde cada conceito entra",
+        "entender como as paginas se conectam",
+        "saber onde esta o fluxo canonico"
       ],
       summaryCards: [
         {
           title: "Leitura guiada",
-          text: "Cada pagina resolve uma pergunta especifica. A narrativa avanca do conceito mais estavel para o fluxo mais operacional."
+          text: "Cada pagina responde uma pergunta objetiva. A sequencia vai da base do modelo ate os fluxos que cortam mais de uma tabela."
         },
         {
           title: "Sem mudar a modelagem",
-          text: "A documentacao foi reorganizada para clareza. Nenhuma tabela, campo, estado ou regra foi alterado."
+          text: "A organizacao mudou para melhorar a leitura. Tabelas, campos, estados e regras continuam os mesmos."
         },
         {
           title: "Fluxo canonico",
-          text: "Os fluxos que cruzam catalogo, checkout e pagamento ficam concentrados em Regras e fluxos."
+          text: "Quando o assunto mistura catalogo, checkout e pagamento, a referencia fica em Regras e fluxos."
         }
       ],
       sidebarTitle: "Inicio",
-      sidebarCopy: "Use esta pagina para entender a ordem da documentacao antes de entrar nos detalhes.",
+      sidebarCopy: "Passe primeiro por esta pagina para se orientar antes de entrar nos detalhes.",
       sections: [
         {
           id: "intro-linha-de-leitura",
           label: "Comece por aqui",
           title: "01. Linha de leitura",
-          copy: `A melhor forma de ler esta wiki e seguir a mesma ordem em que o sistema toma decisoes.
+          copy: `Vale ler esta wiki na mesma ordem em que o sistema toma as decisoes.
 
-Primeiro voce precisa saber **quem e a empresa** e onde a **business unit** entra. Depois faz sentido entender **o catalogo**, ou seja, produto, versao comercial, bundle e oferta configurada. So entao vale entrar no **checkout**, porque o carrinho guarda um snapshot do que veio do catalogo. O **pagamento** fecha a jornada com meios disponiveis, tentativa e desfecho.
+Primeiro vem **a empresa** e o papel da **business unit**. Depois entra **o catalogo**: produto, versao comercial, bundle e oferta configurada. Com isso resolvido, o **checkout** fica claro, porque ele congela um snapshot do que saiu do catalogo. O **pagamento** fecha a jornada com os meios disponiveis e o desfecho da tentativa.
 
-Se voce quiser ver a historia completa, do acesso publico ao retorno do gateway, termine em [Regras e fluxos](./regras.html).`,
+Para ver a historia inteira, do acesso publico ao retorno do gateway, siga para [Regras e fluxos](./regras.html).`,
           tables: [
             {
               title: "Ordem sugerida",
@@ -154,9 +154,9 @@ Se voce quiser ver a historia completa, do acesso publico ao retorno do gateway,
           id: "intro-mapa-geral",
           label: "Mapa da wiki",
           title: "02. Mapa geral da modelagem",
-          copy: `A documentacao esta dividida pelas mesmas camadas usadas para explicar a modelagem.
+          copy: `A wiki foi separada pelas mesmas camadas usadas para explicar o modelo.
 
-Cada camada tem uma responsabilidade clara. Isso evita que empresa, catalogo, checkout e pagamento fiquem misturados na leitura.`,
+Essa divisao deixa cada assunto no seu lugar e evita misturar empresa, catalogo, checkout e pagamento na mesma conversa.`,
           tables: [
             {
               title: "Camadas",
@@ -193,7 +193,7 @@ Cada camada tem uma responsabilidade clara. Isso evita que empresa, catalogo, ch
           title: "03. Glossario rapido",
           copy: `Os termos abaixo aparecem o tempo todo. Vale travar essa base antes de seguir.
 
-O objetivo nao e decorar nomes de tabela. O objetivo e entender o papel de cada conceito no fluxo.`,
+Nao e uma lista para decorar. O ponto aqui e sair com o papel de cada conceito bem claro.`,
           tables: [
             {
               title: "Leitura rapida",
@@ -222,19 +222,19 @@ O objetivo nao e decorar nomes de tabela. O objetivo e entender o papel de cada 
       kicker: "Base da modelagem",
       title: "Empresa e business unit",
       summary:
-        "Esta pagina trava o vocabulario base do sistema. company define o tenant; business_unit define o recorte interno; o resto da modelagem se organiza em camadas acima dessa base.",
+        "Essa pagina firma o vocabulario base do sistema. company marca o tenant, business_unit recorta a operacao e o restante do modelo se organiza a partir disso.",
       tags: ["company", "business_unit", "tenant", "camadas", "identificadores"],
-      panelTitle: "Leia esta pagina para",
+      panelTitle: "Ela responde",
       panelItems: [
-        "entender o tenant da venda",
-        "saber onde a BU entra",
-        "mapear as camadas da modelagem",
-        "ver onde cada tabela se encaixa"
+        "de onde parte a venda",
+        "quando a BU entra no fluxo",
+        "como o modelo foi separado em camadas",
+        "em que bloco cada tabela aparece"
       ],
       summaryCards: [
         {
           title: "Tenant primeiro",
-          text: "Quase toda entidade relevante carrega company_id porque a consulta sempre acontece dentro da empresa."
+          text: "Quase tudo carrega company_id porque a leitura sempre parte da empresa."
         },
         {
           title: "BU como recorte",
@@ -242,19 +242,19 @@ O objetivo nao e decorar nomes de tabela. O objetivo e entender o papel de cada 
         },
         {
           title: "Mapa por camadas",
-          text: "A visao geral da secao Empresa mostra catalogo, bundle, ofertas, checkout e pagamento em blocos separados."
+          text: "O mapa desta secao separa catalogo, bundle, ofertas, checkout e pagamento para a leitura nao virar um ER unico."
         }
       ],
       sidebarTitle: "Empresa",
-      sidebarCopy: "Entenda o tenant e o mapa geral antes de entrar em produto, carrinho e pagamento.",
+      sidebarCopy: "Comece por aqui para alinhar tenant, BU e a divisao por camadas.",
       sections: [
         {
           id: "empresa-fundamentos",
           label: "Fundamento",
           title: "01. Empresa e unidade de negocio",
-          copy: `\`company\` define o tenant. Toda consulta publica, todo carrinho e toda regra de pagamento partem dessa empresa.
+          copy: `\`company\` define o tenant. Consulta publica, carrinho e regra de pagamento sempre nascem dessa empresa.
 
-\`business_unit\` e um recorte dentro da empresa. Ela organiza o catalogo e pode restringir algumas regras. Nem todo carrinho termina em uma unica BU, por isso o cabecalho do carrinho pode ficar sem \`business_unit_id\` quando a venda mistura linhas de BUs diferentes.`,
+\`business_unit\` e um recorte dentro da empresa. Ela organiza o catalogo e pode restringir algumas regras. Quando o carrinho mistura linhas de BUs diferentes, o cabecalho pode ficar sem \`business_unit_id\`.`,
           tables: [
             {
               title: "Valores controlados",
@@ -320,9 +320,9 @@ Esses codigos nao sao globais. Eles sao unicos **dentro da empresa**. Isso permi
           id: "empresa-camadas",
           label: "Mapa geral",
           title: "03. Camadas da modelagem",
-          copy: `A melhor forma de ler a secao Empresa e enxergar a modelagem por blocos. Isso evita um ER unico com muitas arestas e ajuda a separar cadastro, composicao, checkout e pagamento.
+          copy: `Nesta secao, vale olhar a modelagem em blocos. Isso evita um ER unico cheio de arestas e separa melhor cadastro, composicao, checkout e pagamento.
 
-Os detalhes de cada bloco aparecem nas proximas paginas. Aqui o objetivo e fixar **onde cada entidade mora**.`,
+Os detalhes ficam nas proximas paginas. Por enquanto, o importante e localizar cada entidade no mapa.`,
           tables: [
             {
               title: "Camadas da modelagem",
@@ -399,7 +399,7 @@ Os detalhes de cada bloco aparecem nas proximas paginas. Aqui o objetivo e fixar
             {
               id: "empresa-camadas-catalogo",
               title: "Catalogo",
-              copy: `Aqui vivem empresa, unidade de negocio, produto e versao comercial. E a camada que responde **o que a empresa vende**.`,
+              copy: `Esse bloco concentra empresa, unidade de negocio, produto e versao comercial. E onde a modelagem responde **o que a empresa vende**.`,
               diagram: `erDiagram
   COMPANY ||--o{ BUSINESS_UNIT : "1:N"
   COMPANY ||--o{ PRODUCT : "1:N"
@@ -461,14 +461,14 @@ Os detalhes de cada bloco aparecem nas proximas paginas. Aqui o objetivo e fixar
       kicker: "O que pode ser vendido",
       title: "Catalogo, versao comercial e composicao",
       summary:
-        "Esta pagina explica o que nasce no catalogo antes do checkout existir: produto, versao comercial, bundle versionado e oferta configurada para o checkout.",
+        "Antes de existir checkout, o que importa nasce no catalogo: produto, versao comercial, bundle versionado e oferta configurada.",
       tags: ["product", "product_version", "bundle", "bundle_version", "checkout_offer"],
-      panelTitle: "Voce vai sair sabendo",
+      panelTitle: "Ao sair daqui",
       panelItems: [
-        "o papel de product e product_version",
-        "quando nasce uma nova versao comercial",
-        "como bundle se diferencia de checkout_offer",
-        "o que vem pronto para o checkout"
+        "qual e o papel de product e product_version",
+        "quando abrir uma nova versao comercial",
+        "onde bundle termina e checkout_offer comeca",
+        "o que ja sai pronto para o checkout"
       ],
       summaryCards: [
         {
@@ -485,17 +485,17 @@ Os detalhes de cada bloco aparecem nas proximas paginas. Aqui o objetivo e fixar
         }
       ],
       sidebarTitle: "Catalogo",
-      sidebarCopy: "Tudo o que o checkout consome nasce aqui: produto, versao, bundle e oferta configurada.",
+      sidebarCopy: "Produto, versao, bundle e oferta configurada saem daqui e alimentam o checkout.",
       sections: [
         {
           id: "catalogo-produto",
           label: "Catalogo base",
           title: "01. Produto",
-          copy: `\`product\` e o item de catalogo da empresa. Ele identifica **o que esta sendo vendido**.
+          copy: `\`product\` e o item de catalogo da empresa. Ele responde **o que esta sendo vendido**.
 
 \`company_id\` delimita o tenant e \`business_unit_id\` e obrigatorio. O \`sku\` identifica o produto na camada publica dentro da empresa.
 
-O produto sozinho ainda nao traz prazo, preco ou bonus. Esses dados ficam em \`product_version\`, que tambem passa a carregar o codigo publico da oferta comercial.`,
+Prazo, preco e bonus nao ficam no produto. Esses termos moram em \`product_version\`, que tambem carrega o codigo publico da oferta comercial.`,
           tables: [
             {
               title: "Contexto do produto",
@@ -549,9 +549,9 @@ VALUES
           title: "02. Versao comercial",
           copy: `\`product_version\` define **como aquele produto esta sendo vendido em um periodo especifico**.
 
-Aqui moram prazo, bonus, preco, moeda e vigencia. Aqui tambem mora \`code\`, que identifica publicamente a oferta comercial dentro do produto. Quando algum desses termos muda, nasce uma nova linha. A linha antiga continua existindo como historico.
+Nessa tabela ficam prazo, bonus, preco, moeda, vigencia e o \`code\` que identifica publicamente a oferta dentro do produto. Quando algum desses termos muda, entra uma nova linha e a anterior continua como historico.
 
-\`valid_to\` nulo significa "versao ainda vigente". Nao significa "acesso vitalicio".`,
+\`valid_to\` nulo quer dizer "versao ainda vigente". Nao quer dizer "acesso vitalicio".`,
           tables: [
             {
               title: "Historico comercial",
@@ -578,7 +578,7 @@ Aqui moram prazo, bonus, preco, moeda e vigencia. Aqui tambem mora \`code\`, que
             {
               id: "catalogo-versao-historico",
               title: "Quando nasce uma nova versao",
-              copy: `A versao antiga nao e sobrescrita. Ela recebe \`valid_to\` e uma nova linha passa a valer a partir do novo \`valid_from\`.
+              copy: `A linha antiga nao e sobrescrita. Ela recebe \`valid_to\` e uma nova linha passa a valer a partir do novo \`valid_from\`.
 
 Quando a oferta comercial muda de identidade publica, a nova linha recebe um novo \`code\`. A pagina do produto continua chegando pelo \`sku\`; a oferta especifica continua chegando por \`sku + code\`.
 
@@ -642,9 +642,9 @@ O fluxo ponta a ponta de abertura por \`bundle.code\` esta em [Regras e fluxos](
             {
               id: "catalogo-bundle-abertura",
               title: "O que o checkout recebe",
-              copy: `Quando a rota publica resolve \`bundle.code\`, ela carrega a \`bundle_version\` ativa e cria o carrinho com \`bundle_version_id\`.
+              copy: `Quando a rota publica resolve \`bundle.code\`, ela encontra a \`bundle_version\` ativa e abre o carrinho com \`bundle_version_id\`.
 
-Os itens da composicao deixam de ser apenas cadastro e passam a existir como \`cart_item\` no checkout.`,
+Daqui em diante, a composicao deixa de ser cadastro e passa a existir como \`cart_item\` no checkout.`,
               tables: [
                 {
                   title: "Passos resumidos",
@@ -680,7 +680,7 @@ VALUES
 
 O addon pode ser a mesma linha em outra versao ou um produto de outra BU. Quando houver cortesia, a configuracao ja deixa claro qual \`product_version\` gratuita entra junto com a selecao.
 
-Nesta pagina voce entende a configuracao. A decisao do comprador e a materializacao em \`cart_offer\` aparecem em [Checkout](./checkout.html#checkout-oferta-materializada).`,
+Nesta pagina fica so a configuracao. A decisao do comprador e a materializacao em \`cart_offer\` aparecem em [Checkout](./checkout.html#checkout-oferta-materializada).`,
           tables: [
             {
               title: "Valores controlados",
@@ -713,14 +713,14 @@ Nesta pagina voce entende a configuracao. A decisao do comprador e a materializa
       kicker: "Snapshot da compra",
       title: "Checkout, itens e selecao do comprador",
       summary:
-        "Esta pagina mostra o que o checkout congela no momento da compra: o cabecalho do carrinho, os itens materializados, a selecao de oferta e o comportamento de uma venda mista.",
+        "No checkout, o modelo deixa de ser cadastro e vira compra em andamento. A pagina cobre o cabecalho do carrinho, os itens congelados, a selecao de oferta e a venda mista.",
       tags: ["cart", "cart_item", "cart_offer", "snapshot", "venda mista"],
-      panelTitle: "Esta pagina explica",
+      panelTitle: "O que olhar aqui",
       panelItems: [
-        "o que fica no cart",
-        "o que o cart_item copia da versao comercial",
+        "qual contexto fica no cart",
+        "quais campos o cart_item congela",
         "como a oferta vira item adicional",
-        "quando o cabecalho do carrinho perde a BU"
+        "quando o cabecalho perde a BU"
       ],
       summaryCards: [
         {
@@ -737,7 +737,7 @@ Nesta pagina voce entende a configuracao. A decisao do comprador e a materializa
         }
       ],
       sidebarTitle: "Checkout",
-      sidebarCopy: "Aqui a modelagem deixa de ser cadastro e passa a registrar a compra em andamento.",
+      sidebarCopy: "Daqui em diante o modelo registra a compra em andamento, nao so cadastro.",
       sections: [
         {
           id: "checkout-carrinho",
@@ -810,9 +810,9 @@ O checkout nao depende de reler \`product_version\` para reconstruir esse item. 
             {
               id: "checkout-snapshot-exemplo",
               title: "Exemplo do snapshot",
-              copy: `A oferta ativa de 12 meses com 2 meses de bonus entra no carrinho como 14 meses de acesso.
+              copy: `No exemplo, a oferta de 12 meses com 2 meses de bonus entra no carrinho como 14 meses de acesso.
 
-O fluxo completo do \`sku\` e \`product_version.code\` ate o pagamento esta em [Regras e fluxos](./regras.html#fluxo-sku-checkout). Aqui o foco e ver o que fica salvo na linha.`,
+O fluxo completo de \`sku\` e \`product_version.code\` ate o pagamento esta em [Regras e fluxos](./regras.html#fluxo-sku-checkout). Neste trecho, o foco fica so no que foi persistido na linha.`,
               tables: [
                 {
                   title: "Snapshot do exemplo",
@@ -908,14 +908,14 @@ Nesse caso, o cabecalho continua ligado a \`company\` e ao segmento comercial, m
       kicker: "Desfecho financeiro",
       title: "Meios, regras e tentativa de pagamento",
       summary:
-        "Esta pagina explica como os meios ficam disponiveis para o carrinho e como a tentativa de pagamento termina em PENDING, APPROVED ou FAILED.",
+        "Pagamento junta duas discussoes: como os meios entram no checkout e como a tentativa termina em PENDING, APPROVED ou FAILED.",
       tags: ["payment_method", "payment_method_rule", "cart_payment", "PENDING", "APPROVED", "FAILED"],
-      panelTitle: "Ao terminar esta pagina",
+      panelTitle: "No fim da leitura",
       panelItems: [
-        "voce entende o cadastro dos meios",
-        "sabe como a precedencia de regras funciona",
-        "consegue ler os campos de cart_payment",
-        "sabe onde fica o ciclo de estados"
+        "como os meios sao cadastrados",
+        "qual regra ganha na precedencia",
+        "como ler os campos de cart_payment",
+        "onde consultar o ciclo de estados"
       ],
       summaryCards: [
         {
@@ -932,7 +932,7 @@ Nesse caso, o cabecalho continua ligado a \`company\` e ao segmento comercial, m
         }
       ],
       sidebarTitle: "Pagamento",
-      sidebarCopy: "Entenda primeiro quais meios podem aparecer. Depois leia como a tentativa termina.",
+      sidebarCopy: "Primeiro veja como os meios sao resolvidos. Depois passe para o desfecho da tentativa.",
       sections: [
         {
           id: "pagamento-meios",
@@ -972,7 +972,7 @@ O codigo do meio nao e global. Ele e unico dentro do tenant. Isso vale para \`PI
           title: "02. Regras de disponibilidade dos meios",
           copy: `\`payment_method_rule\` define quais meios podem aparecer para um carrinho.
 
-A resolucao parte da empresa do checkout e pode ser refinada por produto, por business unit ou por segmento comercial. O sistema nao mistura niveis. Ele procura o primeiro scope com regras ativas e usa apenas esse conjunto.`,
+A leitura sempre parte da empresa do checkout. Depois pode haver refinamento por produto, por business unit ou por segmento comercial. Os niveis nao se misturam: o primeiro scope com regra ativa vence e so ele entra na lista.`,
           tables: [
             {
               title: "Valores controlados",
@@ -1020,7 +1020,7 @@ VALUES
           title: "03. cart_payment",
           copy: `\`cart_payment\` registra uma tentativa de pagamento ligada ao carrinho.
 
-Na v1, a tentativa entra em \`PENDING\`. Quando o provedor responde com sucesso, vira \`APPROVED\`. Quando recusa, vira \`FAILED\`.`,
+Na v1, ela nasce em \`PENDING\`. Se o provedor aprovar, vai para \`APPROVED\`. Se recusar, vai para \`FAILED\`.`,
           tables: [
             {
               title: "Campos de resultado",
@@ -1052,7 +1052,7 @@ VALUES
           id: "pagamento-estados",
           label: "Estado da tentativa",
           title: "04. Ciclo do pagamento",
-          copy: `O ciclo abaixo resume os estados da tentativa. O ponto importante e que \`PENDING\` cobre o tempo de espera pela resposta do provedor.
+          copy: `O diagrama abaixo resume os estados da tentativa. O ponto importante e que \`PENDING\` cobre o tempo de espera pela resposta do provedor.
 
 Exemplos concretos de retorno do gateway ficam em [Regras e fluxos](./regras.html#fluxo-desfecho-pagamento).`,
           tables: [
@@ -1091,7 +1091,7 @@ Exemplos concretos de retorno do gateway ficam em [Regras e fluxos](./regras.htm
       kicker: "Ponto canonico dos fluxos",
       title: "Regras de negocio e fluxos ponta a ponta",
       summary:
-        "Esta e a pagina canonica para regras que cruzam mais de uma entidade. Aqui estao as jornadas publicas, a resolucao dos meios e os exemplos de retorno do gateway.",
+        "Quando uma regra atravessa mais de uma entidade, a consulta certa e esta pagina. Ela concentra as jornadas publicas, a resolucao dos meios e os exemplos de retorno do gateway.",
       tags: ["sku", "product_version.code", "bundle.code", "checkout_offer", "meios", "gateway"],
       panelTitle: "Use esta pagina quando",
       panelItems: [
@@ -1115,17 +1115,17 @@ Exemplos concretos de retorno do gateway ficam em [Regras e fluxos](./regras.htm
         }
       ],
       sidebarTitle: "Regras e fluxos",
-      sidebarCopy: "Use esta pagina como referencia final para entender o raciocinio completo da modelagem.",
+      sidebarCopy: "Use esta pagina para validar o encadeamento completo das regras e dos fluxos.",
       sections: [
         {
           id: "fluxo-sku-checkout",
           label: "Fluxo canonico",
           title: "01. Produto por sku e oferta por code ate o carrinho",
-          copy: `A camada publica resolve a pagina do produto por \`sku\` dentro da empresa. A partir dessa pagina, o cliente pode ver varias \`product_version\` vigentes do mesmo produto.
+          copy: `Na camada publica, o produto e resolvido por \`sku\` dentro da empresa. Nessa pagina comercial, podem coexistir varias \`product_version\` vigentes do mesmo produto.
 
 Quando a jornada aponta para uma oferta especifica, a URL usa \`sku + product_version.code\`. O carrinho abre com essa versao e salva o snapshot em \`cart_item\`.
 
-O ponto importante aqui e separar **resolucao do produto** de **resolucao da oferta**. A vitrine olha para o \`sku\`. A oferta olha para o \`code\`. O carrinho olha para a \`product_version\` escolhida e salva o snapshot em \`cart_item\`.`,
+A leitura fica mais simples quando voce separa **resolucao do produto** de **resolucao da oferta**. A vitrine bate no \`sku\`. A escolha comercial bate no \`code\`. A compra fechada referencia a \`product_version\` salva no carrinho.`,
           tables: [
             {
               title: "Resolucao publica",
@@ -1170,7 +1170,7 @@ O ponto importante aqui e separar **resolucao do produto** de **resolucao da ofe
           title: "02. Bundle.code ate o carrinho",
           copy: `A rota publica de bundle resolve \`bundle.code\` dentro da empresa, encontra a \`bundle_version\` ativa e abre o carrinho com os itens ja carregados.
 
-Aqui o snapshot nasce da composicao versionada do bundle, nao de uma escolha de itens feita linha a linha pelo comprador.`,
+Nesse fluxo, o snapshot vem da composicao versionada do bundle, nao de uma montagem linha a linha feita pelo comprador.`,
           tables: [
             {
               title: "Passos do fluxo",
@@ -1203,7 +1203,7 @@ Aqui o snapshot nasce da composicao versionada do bundle, nao de uma escolha de 
           title: "03. Oferta opcional no checkout",
           copy: `A oferta parte da versao de origem do produto. Quando o comprador aceita, o checkout grava \`cart_offer\` e cria os itens adicionais necessarios.
 
-O valor desta modelagem e separar a **configuracao da oferta** de sua **execucao no checkout**.`,
+O ganho dessa separacao e simples: \`checkout_offer\` define a regra; \`cart_offer\` registra o que realmente aconteceu.`,
           tables: [
             {
               title: "Cenarios",
