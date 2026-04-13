@@ -204,10 +204,15 @@ Nao e uma lista para decorar. O ponto aqui e sair com o papel de cada conceito b
                 ["product", "Catalogo publico da empresa.", "Catalogo"],
                 ["product_version", "Oferta comercial vigente ou historica do produto.", "Catalogo"],
                 ["product_version.code", "Codigo publico da oferta comercial.", "Catalogo"],
+                ["bundle", "Composicao publica predefinida.", "Catalogo"],
                 ["bundle_version", "Composicao historica de um bundle.", "Catalogo"],
+                ["bundle_item", "Linha da composicao versionada do bundle.", "Catalogo"],
                 ["checkout_offer", "Oferta opcional mostrada no checkout.", "Catalogo"],
                 ["cart", "Cabecalho do checkout.", "Checkout"],
                 ["cart_item", "Snapshot da linha comprada.", "Checkout"],
+                ["cart_offer", "Registro da oferta exibida e da decisao do comprador.", "Checkout"],
+                ["payment_method", "Meio de pagamento disponivel na empresa.", "Pagamento"],
+                ["payment_method_rule", "Regra que define quais meios aparecem no checkout.", "Pagamento"],
                 ["cart_payment", "Tentativa de pagamento.", "Pagamento"]
               ]
             }
