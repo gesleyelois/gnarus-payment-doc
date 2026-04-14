@@ -17,8 +17,8 @@ window.DOC_SITE = (() => {
     title: "Resolucao dos meios",
     columns: ["Nivel", "Fonte", "Uso"],
     rows: [
-      ["PRODUCT", "payment_method_rule.scope = PRODUCT", "Override para um produto especifico."],
-      ["BUSINESS_UNIT", "payment_method_rule.scope = BUSINESS_UNIT", "Regra para uma unidade de negocio da empresa."],
+      ["PRODUCT", "payment_method_rule.scope = PRODUCT", "Override para um produto da empresa do checkout."],
+      ["BUSINESS_UNIT", "payment_method_rule.scope = BUSINESS_UNIT", "Regra para uma unidade de negocio da empresa do checkout."],
       ["SEGMENT", "payment_method_rule.scope = SEGMENT", "Regra padrao para B2C, B2B ou B2B2C."],
       ["GLOBAL", "payment_method_rule.scope = GLOBAL", "Fallback quando nao houver regra mais especifica."]
     ]
@@ -30,6 +30,7 @@ window.DOC_SITE = (() => {
     rows: [
       ["B2B na empresa A", "SEGMENT:B2B com CARD(10)", "CARD"],
       ["B2C na empresa A", "SEGMENT:B2C com PIX(10), NUPAY(20), CARD(30), PAYPAL(40)", "PIX, NUPAY, CARD, PAYPAL"],
+      ["Checkout Alura com item StartSe", "SEGMENT:B2C da empresa ALURA", "PIX, NUPAY, CARD, PAYPAL"],
       ["BU EDU na empresa A", "BUSINESS_UNIT:EDU com PIX(5), CARD(10)", "PIX, CARD"],
       ["PRODUCT_I em B2C", "PRODUCT:PRODUCT_I com PIX(1), CARD(2)", "PIX, CARD"],
       ["Fallback global", "GLOBAL com CARD(100)", "CARD"]
@@ -73,7 +74,7 @@ window.DOC_SITE = (() => {
       id: "checkout",
       step: "04",
       label: "Checkout",
-      description: "Carrinho, snapshot e venda mista",
+      description: "Carrinho, snapshot e venda multiempresa",
       href: "./checkout.html"
     },
     {
@@ -115,8 +116,8 @@ window.DOC_SITE = (() => {
           text: "Cada pagina responde uma pergunta objetiva. A sequencia vai da base do modelo ate os fluxos que cortam mais de uma tabela."
         },
         {
-          title: "Sem mudar a modelagem",
-          text: "A organizacao mudou para melhorar a leitura. Tabelas, campos, estados e regras continuam os mesmos."
+          title: "Linha pode ser parceira",
+          text: "O checkout continua publicado por uma empresa, mas cada cart_item pode registrar uma empresa parceira na propria linha."
         },
         {
           title: "Fluxo canonico",
@@ -143,7 +144,7 @@ Para ver a historia inteira, do acesso publico ao retorno do gateway, siga para 
                 ["Inicio", "Qual e a linha de raciocinio da wiki?", "Mapa geral e ordem da documentacao."],
                 ["Empresa", "Quem define o tenant e o recorte interno?", "company, business_unit e camadas da modelagem."],
                 ["Catalogo", "O que pode ser vendido?", "product, product_version, bundle e checkout_offer."],
-                ["Checkout", "O que fica congelado na compra?", "cart, cart_item, cart_offer e venda mista."],
+                ["Checkout", "O que fica congelado na compra?", "cart, cart_item, cart_offer e venda mista por BU ou empresa."],
                 ["Pagamento", "Como o meio aparece e como a tentativa termina?", "payment_method, payment_method_rule e cart_payment."],
                 ["Regras e fluxos", "Como tudo se encadeia do inicio ao fim?", "Jornadas ponta a ponta e regras de negocio."]
               ]
@@ -232,18 +233,18 @@ Nao e uma lista para decorar. O ponto aqui e sair com o papel de cada conceito b
       panelTitle: "Ela responde",
       panelItems: [
         "de onde parte a venda",
-        "quando a BU entra no fluxo",
+        "quando a empresa da linha pode divergir do checkout",
         "como o modelo foi separado em camadas",
         "em que bloco cada tabela aparece"
       ],
       summaryCards: [
         {
           title: "Tenant primeiro",
-          text: "Quase tudo carrega company_id porque a leitura sempre parte da empresa."
+          text: "company continua abrindo a rota publica, o checkout e as regras de pagamento."
         },
         {
-          title: "BU como recorte",
-          text: "business_unit organiza o catalogo e as regras internas. No checkout ela pode aparecer no cabecalho ou so nas linhas."
+          title: "Linha pode ser parceira",
+          text: "cart.company_id publica o checkout; cart_item.company_id guarda a empresa real do item quando houver venda entre empresas."
         },
         {
           title: "Mapa por camadas",
@@ -257,9 +258,9 @@ Nao e uma lista para decorar. O ponto aqui e sair com o papel de cada conceito b
           id: "empresa-fundamentos",
           label: "Fundamento",
           title: "01. Empresa e unidade de negocio",
-          copy: `\`company\` define o tenant. Consulta publica, carrinho e regra de pagamento sempre nascem dessa empresa.
+          copy: `\`company\` define o tenant das rotas publicas e a empresa que publica o checkout. \`cart.company_id\` segue essa empresa, e e dela que saem as ofertas e os meios de pagamento.
 
-\`business_unit\` e um recorte dentro da empresa. Ela organiza o catalogo e pode restringir algumas regras. Quando o carrinho mistura linhas de BUs diferentes, o cabecalho pode ficar sem \`business_unit_id\`.`,
+\`business_unit\` e um recorte dentro da empresa. Ela organiza o catalogo e pode restringir algumas regras. Quando o carrinho mistura BUs ou inclui item de empresa parceira, o cabecalho perde o resumo e a leitura passa para \`cart_item.company_id\` e \`cart_item.business_unit_id\`.`,
           tables: [
             {
               title: "Valores controlados",
@@ -273,10 +274,10 @@ Nao e uma lista para decorar. O ponto aqui e sair com o papel de cada conceito b
               title: "Papel de cada entidade",
               columns: ["Entidade", "Papel", "Impacto no fluxo"],
               rows: [
-                ["company", "Tenant da venda.", "Delimita catalogo, checkout e pagamento."],
+                ["company", "Tenant da rota publica e do checkout.", "Delimita catalogo, oferta e pagamento."],
                 ["business_unit", "Recorte interno da empresa.", "Organiza produto e pode participar da resolucao dos meios."],
                 ["product", "Item de catalogo da empresa.", "Sempre aponta para uma BU."],
-                ["cart", "Checkout da empresa.", "Pode ter BU unica ou ficar nulo em venda mista."]
+                ["cart", "Checkout publicado por uma empresa.", "Pode carregar linhas proprias ou de parceiras."]
               ]
             }
           ],
@@ -285,6 +286,7 @@ Nao e uma lista para decorar. O ponto aqui e sair com o papel de cada conceito b
   COMPANY ||--o{ PRODUCT : "1:N"
   BUSINESS_UNIT ||--o{ PRODUCT : "0:N"
   COMPANY ||--o{ CART : "1:N"
+  COMPANY ||--o{ CART_ITEM : "0:N"
   BUSINESS_UNIT ||--o{ CART : "0:N"`
         },
         {
@@ -312,9 +314,9 @@ Esses codigos nao sao globais. Eles sao unicos **dentro da empresa**. Isso permi
               rows: [
                 ["product", "obrigatorio", "obrigatorio", "Catalogo da empresa."],
                 ["bundle", "obrigatorio", "opcional", "Composicao publica da empresa."],
-                ["checkout_offer", "obrigatorio", "-", "Oferta opcional ligada ao catalogo."],
-                ["cart", "obrigatorio", "opcional", "Checkout da empresa."],
-                ["cart_item", "via cart", "obrigatorio", "Snapshot da linha comprada."],
+                ["checkout_offer", "obrigatorio", "-", "Oferta publicada pela empresa do checkout."],
+                ["cart", "obrigatorio", "opcional", "Checkout publicado pela empresa."],
+                ["cart_item", "obrigatorio", "obrigatorio", "Snapshot da linha, inclusive em venda parceira."],
                 ["payment_method", "obrigatorio", "-", "Meio liberado por empresa."],
                 ["payment_method_rule", "obrigatorio", "opcional", "Regra aplicada dentro da empresa."]
               ]
@@ -389,6 +391,7 @@ Os detalhes ficam nas proximas paginas. Por enquanto, o importante e localizar c
   CHECKOUT_OFFER --> CART_OFFER
 
   COMPANY --> CART
+  COMPANY --> CART_ITEM
   BUSINESS_UNIT --> CART
   CART --> CART_ITEM
   PRODUCT_VERSION --> CART_ITEM
@@ -425,7 +428,7 @@ Os detalhes ficam nas proximas paginas. Por enquanto, o importante e localizar c
             {
               id: "empresa-camadas-ofertas",
               title: "Ofertas",
-              copy: `\`checkout_offer\` configura o addon antes do checkout. \`cart_offer\` registra o que aconteceu quando a oferta foi exibida para o comprador.`,
+              copy: `\`checkout_offer\` configura o addon antes do checkout. A empresa da oferta publica a jornada; o item oferecido pode vir dela mesma ou de uma parceira. \`cart_offer\` registra o que aconteceu quando a oferta foi exibida para o comprador.`,
               diagram: `flowchart LR
   SOURCE[product_version origem] --> RULE[checkout_offer]
   RULE --> OFFERED[cart_offer]
@@ -435,9 +438,10 @@ Os detalhes ficam nas proximas paginas. Por enquanto, o importante e localizar c
             {
               id: "empresa-camadas-checkout",
               title: "Checkout",
-              copy: `A camada de checkout guarda o snapshot da compra. O carrinho nao depende de reler o catalogo para saber o que foi vendido.`,
+              copy: `A camada de checkout guarda o snapshot da compra. \`cart\` resume quem publicou a jornada; \`cart_item\` congela a empresa e a BU reais de cada linha.`,
               diagram: `erDiagram
   COMPANY ||--o{ CART : "1:N"
+  COMPANY ||--o{ CART_ITEM : "0:N"
   BUSINESS_UNIT ||--o{ CART : "0:N"
   BUNDLE_VERSION ||--o{ CART : "0:N"
   CART ||--o{ CART_ITEM : "1:N"
@@ -683,9 +687,9 @@ VALUES
           title: "04. Oferta configurada para o checkout",
           copy: `\`checkout_offer\` modela uma sugestao opcional mostrada durante o checkout. Ela liga uma versao de origem a uma versao ofertada.
 
-O addon pode ser a mesma linha em outra versao ou um produto de outra BU. Quando houver cortesia, a configuracao ja deixa claro qual \`product_version\` gratuita entra junto com a selecao.
+O addon pode ser a mesma linha em outra versao, um produto de outra BU ou um produto de empresa parceira. Quando houver cortesia, a configuracao ja deixa claro qual \`product_version\` gratuita entra junto com a selecao.
 
-Nesta pagina fica so a configuracao. A decisao do comprador e a materializacao em \`cart_offer\` aparecem em [Checkout](./checkout.html#checkout-oferta-materializada).`,
+Nesta pagina fica so a configuracao. A decisao do comprador e a materializacao em \`cart_offer\` aparecem em [Checkout](./checkout.html#checkout-oferta-materializada). O fluxo parceiro fica em [Regras e fluxos](./regras.html#fluxo-oferta-multiempresa).`,
           tables: [
             {
               title: "Valores controlados",
@@ -696,10 +700,10 @@ Nesta pagina fica so a configuracao. A decisao do comprador e a materializacao e
               title: "Contexto da oferta",
               columns: ["Campo", "Regra", "Uso"],
               rows: [
-                ["company_id", "Obrigatorio.", "Oferta pertence a empresa."],
+                ["company_id", "Obrigatorio.", "Empresa que publica a oferta."],
                 ["source_product_version_id", "Obrigatorio.", "Versao que dispara a oferta."],
-                ["offered_product_version_id", "Obrigatorio.", "Addon sugerido; pode ser upsell ou cross-sell."],
-                ["courtesy_product_version_id", "Opcional.", "Produto gratuito quando o addon e selecionado."],
+                ["offered_product_version_id", "Obrigatorio.", "Addon sugerido; pode ser upsell, cross-sell ou item de empresa parceira."],
+                ["courtesy_product_version_id", "Opcional.", "Produto gratuito quando o addon e selecionado; pode vir da empresa parceira."],
                 ["priority", "Menor valor primeiro.", "Define a ordem quando houver mais de uma oferta ativa."]
               ]
             }
@@ -713,19 +717,19 @@ Nesta pagina fica so a configuracao. A decisao do comprador e a materializacao e
     },
     checkout: {
       metaTitle: "Checkout",
-      metaDescription: "Carrinho, snapshot da compra, materializacao da oferta e venda mista.",
+      metaDescription: "Carrinho, snapshot da compra, materializacao da oferta e venda mista por BU ou empresa.",
       badge: "Pagina 04",
       kicker: "Snapshot da compra",
       title: "Checkout, itens e selecao do comprador",
       summary:
-        "No checkout, o modelo deixa de ser cadastro e vira compra em andamento. A pagina cobre o cabecalho do carrinho, os itens congelados, a selecao de oferta e a venda mista.",
-      tags: ["cart", "cart_item", "cart_offer", "snapshot", "venda mista"],
+        "No checkout, o modelo deixa de ser cadastro e vira compra em andamento. A pagina cobre o cabecalho do carrinho, os itens congelados, a selecao de oferta e a venda mista por BU ou empresa.",
+      tags: ["cart", "cart_item", "cart_offer", "snapshot", "venda mista", "multiempresa"],
       panelTitle: "O que olhar aqui",
       panelItems: [
         "qual contexto fica no cart",
         "quais campos o cart_item congela",
         "como a oferta vira item adicional",
-        "quando o cabecalho perde a BU"
+        "quando a linha vem de outra empresa"
       ],
       summaryCards: [
         {
@@ -733,12 +737,12 @@ Nesta pagina fica so a configuracao. A decisao do comprador e a materializacao e
           text: "Ao reabrir o checkout, a interface usa cart_item.product_version_id e os campos congelados no item."
         },
         {
-          title: "BU por linha",
-          text: "Quando a venda mistura unidades de negocio, a BU sai do cabecalho e fica obrigatoria em cada cart_item."
+          title: "Empresa e BU por linha",
+          text: "Quando a venda mistura BUs ou empresas, o snapshot da origem real fica em cart_item.company_id e cart_item.business_unit_id."
         },
         {
           title: "Oferta vira registro",
-          text: "A configuracao do addon nasce em checkout_offer, mas a resposta do comprador fica em cart_offer."
+          text: "A configuracao do addon nasce em checkout_offer; a aceitacao pode criar uma linha da propria empresa ou de uma parceira em cart_offer."
         }
       ],
       sidebarTitle: "Checkout",
@@ -748,17 +752,18 @@ Nesta pagina fica so a configuracao. A decisao do comprador e a materializacao e
           id: "checkout-carrinho",
           label: "Cabecalho da compra",
           title: "01. Carrinho",
-          copy: `\`cart\` representa o checkout da empresa. Ele carrega o contexto geral da venda: empresa, segmento comercial, bundle de origem quando houver, totais e status.
+          copy: `\`cart\` representa o checkout publicado por uma empresa. Ele carrega o contexto geral da venda: empresa que abriu a jornada, segmento comercial, bundle de origem quando houver, totais e status.
 
-\`business_unit_id\` no cabecalho e opcional. Ele so fica preenchido quando a venda inteira fecha em uma unica BU.`,
+\`cart.company_id\` identifica a empresa que publica o checkout, as ofertas e os meios. Isso nao obriga todas as linhas a pertencerem a ela. \`business_unit_id\` no cabecalho so fica preenchido quando a venda inteira fecha em uma unica BU da empresa do checkout.`,
           tables: [
             {
               title: "Contexto da venda",
               columns: ["Campo", "Regra", "Uso"],
               rows: [
-                ["company_id", "Obrigatorio.", "Empresa dona do checkout."],
+                ["company_id", "Obrigatorio.", "Empresa que publica o checkout e resolve os meios."],
                 ["bundle_version_id", "Opcional.", "Versao do bundle de origem do carrinho."],
-                ["business_unit_id", "Opcional.", "Unidade de negocio do carrinho; nulo quando a venda mistura BUs."],
+                ["business_unit_id", "Opcional.", "Unidade do cabecalho; nulo quando a venda mistura BUs ou empresas."],
+                ["cart_item.company_id", "Obrigatorio.", "Empresa congelada em cada linha; pode divergir do cabecalho."],
                 ["cart_item.business_unit_id", "Obrigatorio.", "BU congelada em cada linha."]
               ]
             },
@@ -792,7 +797,7 @@ Nesta pagina fica so a configuracao. A decisao do comprador e a materializacao e
           id: "checkout-snapshot",
           label: "Linha congelada",
           title: "02. Snapshot do item",
-          copy: `\`cart_item\` grava a versao comercial escolhida no momento da compra. Isso inclui prazo, bonus, preco, quantidade e BU da linha.
+          copy: `\`cart_item\` grava a versao comercial escolhida no momento da compra. Isso inclui empresa, BU, prazo, bonus, preco e quantidade da linha.
 
 O checkout nao depende de reler \`product_version\` para reconstruir esse item. Ele ja carrega o snapshot necessario para mostrar a compra de novo.`,
           tables: [
@@ -801,13 +806,13 @@ O checkout nao depende de reler \`product_version\` para reconstruir esse item. 
               columns: ["Campo", "Origem", "Uso"],
               rows: [
                 ["product_version_id", "product_version.id", "Referencia da oferta escolhida e versao exibida ao reabrir o carrinho."],
+                ["company_id", "product.company_id", "Empresa congelada da linha."],
                 ["business_unit_id", "product.business_unit_id", "BU congelada na linha."],
                 ["quantity", "Definido no carrinho", "Unidades compradas. Assinatura costuma ser 1; evento pode ser maior."],
                 ["access_months", "product_version.access_months", "Periodo base contratado na compra."],
                 ["bonus_months", "product_version.bonus_months", "Meses extras concedidos na compra."],
                 ["total_access_months", "access_months + bonus_months", "Prazo final de acesso."],
-                ["unit_price", "product_version.price_amount", "Preco congelado no carrinho."],
-                ["currency", "product_version.currency", "Moeda congelada no item."]
+                ["unit_price", "product_version.price_amount", "Preco congelado no carrinho."]
               ]
             }
           ],
@@ -824,7 +829,7 @@ O fluxo completo de \`sku\` e \`product_version.code\` ate o pagamento esta em [
                   columns: ["Tabela", "Dados", "Leitura"],
                   rows: [
                     ["product_version", "id=2 | code=12m-bonus-2 | access_months=12 | bonus_months=2 | price_amount=199.90", "Oferta usada no fechamento."],
-                    ["cart_item", "product_version_id=2 | business_unit_id=1 | quantity=1 | access_months=12 | bonus_months=2 | total_access_months=14 | unit_price=199.90", "Snapshot da linha."],
+                    ["cart_item", "product_version_id=2 | company_id=1 | business_unit_id=1 | quantity=1 | access_months=12 | bonus_months=2 | total_access_months=14 | unit_price=199.90", "Snapshot da linha."],
                     ["cart_payment", "status=PENDING -> APPROVED", "Tentativa de pagamento concluida com sucesso."]
                   ]
                 }
@@ -846,9 +851,9 @@ O fluxo completo de \`sku\` e \`product_version.code\` ate o pagamento esta em [
 VALUES
   (1, 1, 1, NULL, 'BUYER-1001', 'B2C', 'DRAFT', 'BRL', 199.90, 0.00, 199.90, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
-INSERT INTO cart_item (id, cart_id, product_version_id, business_unit_id, quantity, unit_price, total_price, access_months, bonus_months, total_access_months, created_at, updated_at)
+INSERT INTO cart_item (id, cart_id, product_version_id, company_id, business_unit_id, quantity, unit_price, total_price, access_months, bonus_months, total_access_months, created_at, updated_at)
 VALUES
-  (1, 1, 2, 1, 1, 199.90, 199.90, 12, 2, 14, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`
+  (1, 1, 2, 1, 1, 1, 199.90, 199.90, 12, 2, 14, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`
         },
         {
           id: "checkout-oferta-materializada",
@@ -856,7 +861,7 @@ VALUES
           title: "03. Oferta materializada no checkout",
           copy: `\`cart_offer\` registra a oferta exibida e a decisao do comprador. E aqui que a sugestao configurada em \`checkout_offer\` vira um fato no checkout.
 
-Se a oferta for aceita, o carrinho cria o item addon e, quando houver, o item de cortesia. Se for recusada, o registro continua servindo como historico da exibicao.`,
+Se a oferta for aceita, o carrinho cria o item addon e, quando houver, o item de cortesia. Cada linha nova grava a empresa e a BU reais do item ofertado. Se for recusada, o registro continua servindo como historico da exibicao.`,
           tables: [
             {
               title: "Valores controlados",
@@ -873,34 +878,34 @@ Se a oferta for aceita, o carrinho cria o item addon e, quando houver, o item de
         },
         {
           id: "checkout-venda-mista",
-          label: "Mais de uma BU",
-          title: "04. Venda mista",
-          copy: `Uma venda mista acontece quando o mesmo carrinho carrega linhas de business units diferentes.
+          label: "Empresa e BU",
+          title: "04. Venda mista por empresa e BU",
+          copy: `Uma venda mista acontece quando o mesmo carrinho carrega linhas de business units diferentes, de empresas diferentes ou das duas coisas ao mesmo tempo.
 
-Nesse caso, o cabecalho continua ligado a \`company\` e ao segmento comercial, mas o \`business_unit_id\` do \`cart\` fica nulo. A BU passa a ser lida linha por linha em \`cart_item\`.`,
+Nesse caso, o cabecalho continua ligado a \`cart.company_id\` e ao segmento comercial, mas o \`business_unit_id\` do \`cart\` fica nulo. A origem real passa a ser lida linha por linha em \`cart_item.company_id\` e \`cart_item.business_unit_id\`. O exemplo Alura + StartSe aparece em [Regras e fluxos](./regras.html#fluxo-oferta-multiempresa).`,
           tables: [
             {
               title: "Exemplo de linhas",
               columns: ["Tabela", "Dados", "Leitura"],
               rows: [
-                ["cart", "company_id=1 | business_unit_id=NULL | commercial_segment=B2C", "Carrinho com mais de uma BU."],
-                ["cart_item 1", "product_version_id=10 | business_unit_id=EDU | quantity=1", "Linha da BU EDU."],
-                ["cart_item 2", "product_version_id=21 | business_unit_id=EVENTOS | quantity=2", "Linha da BU EVENTOS."]
+                ["cart", "company_id=ALURA | business_unit_id=NULL | commercial_segment=B2C", "Checkout publicado pela Alura."],
+                ["cart_item 1", "product_version_id=ALURA-12M | company_id=ALURA | business_unit_id=PLATAFORMA | quantity=1", "Linha da empresa do checkout."],
+                ["cart_item 2", "product_version_id=STARTSE-INGRESSO | company_id=STARTSE | business_unit_id=EVENTOS | quantity=2", "Linha da empresa parceira."]
               ]
             },
             {
               title: "Regra",
               columns: ["Cenario", "Leitura", "Uso"],
               rows: [
-                ["Uma BU", "cart.business_unit_id preenchido", "Checkout simples."],
-                ["Multiplas BUs", "cart.business_unit_id = NULL", "Venda mista."],
-                ["Bundle", "varios cart_item no mesmo carrinho", "Composicao pre-carregada."]
+                ["Uma empresa e uma BU", "cart.company_id e cart.business_unit_id resumem o checkout", "Checkout simples."],
+                ["Mais de uma BU na mesma empresa", "cart.business_unit_id = NULL", "Venda mista interna."],
+                ["Empresa parceira no carrinho", "cart_item.company_id pode divergir de cart.company_id", "Venda multiempresa."]
               ]
             }
           ],
           diagram: `flowchart LR
-  CART[cart] --> ITEM1[cart_item EDU]
-  CART --> ITEM2[cart_item EVENTOS]
+  CART[checkout Alura] --> ITEM1[cart_item Alura]
+  CART --> ITEM2[cart_item StartSe]
   ITEM1 --> TOTAL[cart totals]
   ITEM2 --> TOTAL`
         }
@@ -928,8 +933,8 @@ Nesse caso, o cabecalho continua ligado a \`company\` e ao segmento comercial, m
           text: "Na v1, toda tentativa comeca em PENDING e so sai desse estado quando o provedor devolve sucesso ou falha."
         },
         {
-          title: "Resolucao nao mescla scopes",
-          text: "O primeiro nivel com regra ativa vence. Dentro desse nivel, priority menor aparece primeiro."
+          title: "Meio continua no checkout",
+          text: "Mesmo quando existe item de empresa parceira, a resolucao de meios continua na empresa que publicou o carrinho."
         },
         {
           title: "Resultado fica em cart_payment",
@@ -977,7 +982,7 @@ O codigo do meio nao e global. Ele e unico dentro do tenant. Isso vale para \`PI
           title: "02. Regras de disponibilidade dos meios",
           copy: `\`payment_method_rule\` define quais meios podem aparecer para um carrinho.
 
-A leitura sempre parte da empresa do checkout. Depois pode haver refinamento por produto, por business unit ou por segmento comercial. Os niveis nao se misturam: o primeiro scope com regra ativa vence e so ele entra na lista.`,
+A leitura sempre parte da empresa do checkout. Quando existir item de empresa parceira, essa linha nao troca o cadastro de meios: a lista continua vindo de \`cart.company_id\`. Depois pode haver refinamento por produto, por business unit ou por segmento comercial. Os niveis nao se misturam: o primeiro scope com regra ativa vence e so ele entra na lista.`,
           tables: [
             {
               title: "Valores controlados",
@@ -1096,8 +1101,8 @@ Exemplos concretos de retorno do gateway ficam em [Regras e fluxos](./regras.htm
       kicker: "Ponto canonico dos fluxos",
       title: "Regras de negocio e fluxos ponta a ponta",
       summary:
-        "Quando uma regra atravessa mais de uma entidade, a consulta certa e esta pagina. Ela concentra as jornadas publicas, a resolucao dos meios e os exemplos de retorno do gateway.",
-      tags: ["sku", "product_version.code", "bundle.code", "checkout_offer", "meios", "gateway"],
+        "Quando uma regra atravessa mais de uma entidade, a consulta certa e esta pagina. Ela concentra as jornadas publicas, a venda parceira no checkout, a resolucao dos meios e os exemplos de retorno do gateway.",
+      tags: ["sku", "product_version.code", "bundle.code", "checkout_offer", "multiempresa", "meios", "gateway"],
       panelTitle: "Use esta pagina quando",
       panelItems: [
         "precisar ver a historia completa",
@@ -1215,7 +1220,7 @@ O ganho dessa separacao e simples: \`checkout_offer\` define a regra; \`cart_off
               columns: ["Cenario", "Leitura", "Snapshot"],
               rows: [
                 ["Upsell", "Mesma linha, prazo maior.", "12 meses -> 24 meses."],
-                ["Cross sell", "Produto de outra BU.", "Produto A oferece Produto B."],
+                ["Cross sell", "Produto de outra BU ou de empresa parceira.", "Produto A oferece Produto B."],
                 ["Cortesia", "Addon escolhido gera brinde.", "Addon selecionado -> produto gratis."]
               ]
             },
@@ -1246,20 +1251,69 @@ O ganho dessa separacao e simples: \`checkout_offer\` define a regra; \`cart_off
   R->>C: atualiza totais`
         },
         {
+          id: "fluxo-oferta-multiempresa",
+          label: "Fluxo canonico",
+          title: "04. Checkout parceiro: Alura + StartSe no mesmo carrinho",
+          copy: `Neste fluxo, a jornada nasce na Alura, mas uma oferta opcional adiciona um item da StartSe no mesmo checkout.
+
+O cabecalho do \`cart\` continua com \`company_id = ALURA\`. Quando o comprador aceita o ingresso parceiro, o checkout cria um novo \`cart_item\` com \`company_id = STARTSE\`. Os totais continuam sendo a soma das linhas, e a lista de meios segue na empresa que publicou o checkout.`,
+          tables: [
+            {
+              title: "Passos do fluxo",
+              columns: ["Passo", "Tabelas afetadas", "Resultado"],
+              rows: [
+                ["Abrir checkout pela oferta Alura", "company, product, product_version, cart", "Carrinho nasce com company_id = ALURA."],
+                ["Ler addon parceiro", "checkout_offer, product_version", "Oferta ativa aponta para o ingresso da StartSe."],
+                ["Selecionar oferta", "cart_offer", "Decisao do comprador registrada."],
+                ["Materializar item parceiro", "cart_item", "Nova linha entra com company_id = STARTSE e BU da StartSe."],
+                ["Recalcular totais", "cart, cart_item", "Subtotal e total passam a refletir as duas empresas."],
+                ["Resolver pagamento", "payment_method_rule, payment_method", "Lista de meios continua vindo da Alura."]
+              ]
+            },
+            {
+              title: "Snapshot do exemplo",
+              columns: ["Tabela", "Dados", "Leitura"],
+              rows: [
+                ["cart", "company_id=ALURA | business_unit_id=NULL | commercial_segment=B2C", "Checkout publicado pela Alura."],
+                ["cart_item 1", "product_version_id=ALURA-12M | company_id=ALURA | business_unit_id=PLATAFORMA", "Linha principal da jornada."],
+                ["cart_item 2", "product_version_id=STARTSE-INGRESSO | company_id=STARTSE | business_unit_id=EVENTOS", "Linha parceira adicionada pela oferta."],
+                ["cart_payment", "payment_method_id=PIX_ALURA", "Pagamento segue o cadastro da Alura."]
+              ]
+            }
+          ],
+          diagram: `sequenceDiagram
+  participant U as Usuario
+  participant A as checkout Alura
+  participant O as checkout_offer
+  participant R as cart_offer
+  participant I as cart_item
+  participant P as payment_method_rule
+
+  U->>A: abre checkout pela oferta Alura
+  A->>O: carrega addon parceiro StartSe
+  U->>R: aceita ingresso parceiro
+  R->>I: cria linha company_id = STARTSE
+  I->>A: recalcula totais
+  A->>P: resolve meios pela ALURA
+  P-->>U: exibe PIX, NUPAY, CARD, PAYPAL`
+        },
+        {
           id: "fluxo-venda-mista",
           label: "Regra de leitura",
-          title: "04. Venda mista e origem dos totais",
-          copy: `A venda mista existe quando o mesmo carrinho carrega linhas de BUs diferentes.
+          title: "05. Venda mista e origem dos totais",
+          copy: `A venda mista existe quando o mesmo carrinho carrega linhas de BUs diferentes, de empresas diferentes ou das duas coisas ao mesmo tempo.
 
-O cabecalho do checkout continua apontando para a empresa e para o segmento comercial. A BU do cabecalho so existe quando a venda fecha em uma unica BU. Os totais continuam sendo calculados pela soma dos itens do carrinho.`,
+O cabecalho do checkout continua apontando para a empresa que publicou a jornada e para o segmento comercial. A BU do cabecalho so existe quando a venda fecha em uma unica BU dessa empresa. Os totais continuam sendo calculados pela soma dos itens do carrinho.`,
           tables: [
             {
               title: "Origem dos campos do carrinho",
               columns: ["Campo", "Fonte", "Regra"],
               rows: [
-                ["company_id", "empresa do checkout", "Identifica o tenant."],
+                ["company_id", "empresa que publica o checkout", "Identifica a empresa da jornada e da resolucao dos meios."],
                 ["bundle_version_id", "bundle.code resolvido", "Versao do bundle que originou o carrinho."],
-                ["business_unit_id", "header do cart ou linha do item", "Resumo do checkout ou snapshot da linha."],
+                ["business_unit_id", "header do cart", "Resumo do checkout quando existir uma unica BU na empresa do checkout."],
+                ["cart_item.company_id", "product.company_id", "Origem real de cada linha vendida."],
+                ["cart_item.business_unit_id", "product.business_unit_id", "BU real de cada linha vendida."],
                 ["buyer_reference", "sessao, token ou customer futuro", "Identifica o dono do checkout."],
                 ["subtotal_amount", "soma de cart_item.total_price", "Resumo dos itens."],
                 ["discount_amount", "cupom ou campanha futura", "Zero na v1."],
@@ -1270,16 +1324,16 @@ O cabecalho do checkout continua apontando para a empresa e para o segmento come
               title: "Regra da BU",
               columns: ["Cenario", "Leitura", "Uso"],
               rows: [
-                ["Uma BU", "cart.business_unit_id preenchido", "Checkout simples."],
-                ["Multiplas BUs", "cart.business_unit_id = NULL", "Venda mista."],
-                ["Linha do carrinho", "cart_item.business_unit_id obrigatorio", "Origem real da linha."]
+                ["Uma empresa e uma BU", "cart.business_unit_id preenchido", "Checkout simples."],
+                ["Multiplas BUs na mesma empresa", "cart.business_unit_id = NULL", "Venda mista interna."],
+                ["Empresa parceira no carrinho", "cart_item.company_id pode divergir de cart.company_id", "Venda multiempresa."]
               ]
             }
           ],
           diagram: `flowchart LR
   CART[cart]
-  ITEM1[cart_item EDU]
-  ITEM2[cart_item EVENTOS]
+  ITEM1[cart_item Alura]
+  ITEM2[cart_item StartSe]
   TOTAL[totais do cart]
 
   CART --> ITEM1
@@ -1290,10 +1344,10 @@ O cabecalho do checkout continua apontando para a empresa e para o segmento come
         {
           id: "fluxo-meios-pagamento",
           label: "Regra canonica",
-          title: "05. Resolucao dos meios de pagamento",
-          copy: `A lista de meios parte da empresa do carrinho. Depois o sistema procura o primeiro scope com regra ativa na ordem PRODUCT, BUSINESS_UNIT, SEGMENT e GLOBAL.
+          title: "06. Resolucao dos meios de pagamento",
+          copy: `A lista de meios parte de \`cart.company_id\`. Mesmo quando uma linha vem de empresa parceira, a empresa da linha nao redefine \`payment_method_rule\`: a resolucao continua na empresa que publicou o checkout. Depois o sistema procura o primeiro scope com regra ativa na ordem PRODUCT, BUSINESS_UNIT, SEGMENT e GLOBAL.
 
-Em venda mista, a regra de business unit so vale quando a compra fecha em uma unica BU. Nos demais casos, a resolucao segue produto, segmento ou fallback global.`,
+Em venda mista, a regra de business unit so vale quando a compra fecha em uma unica BU da empresa do checkout. Nos demais casos, a resolucao segue as regras aplicaveis dessa empresa e cai para segmento ou fallback global quando nao houver override especifico.`,
           tables: [
             {
               title: "Precedencia",
@@ -1314,7 +1368,7 @@ Em venda mista, a regra de business unit so vale quando a compra fecha em uma un
         {
           id: "fluxo-desfecho-pagamento",
           label: "Retorno externo",
-          title: "06. Tentativa e desfecho do pagamento",
+          title: "07. Tentativa e desfecho do pagamento",
           copy: `A tentativa nasce em \`PENDING\`. O provedor decide se ela vira \`APPROVED\` ou \`FAILED\`.
 
 Os exemplos abaixo mostram como os campos de \`cart_payment\` ficam preenchidos de acordo com o retorno do gateway.`,
@@ -1416,9 +1470,9 @@ Os exemplos abaixo mostram como os campos de \`cart_payment\` ficam preenchidos 
     ],
     CHECKOUT_OFFER: [
       { name: "id", type: "Integer", description: "Identificador da linha." },
-      { name: "company_id", type: "Integer", description: "Empresa dona da oferta." },
+      { name: "company_id", type: "Integer", description: "Empresa que publica a oferta." },
       { name: "source_product_version_id", type: "Integer", description: "Versao que dispara a oferta." },
-      { name: "offered_product_version_id", type: "Integer", description: "Versao sugerida como addon." },
+      { name: "offered_product_version_id", type: "Integer", description: "Versao sugerida como addon, inclusive de empresa parceira." },
       { name: "courtesy_product_version_id", type: "Integer", description: "Versao gratuita, quando houver cortesia." },
       { name: "priority", type: "Integer", description: "Ordem de exibicao da oferta." },
       { name: "active", type: "Boolean", description: "Indica se a oferta esta habilitada." },
@@ -1429,9 +1483,9 @@ Os exemplos abaixo mostram como os campos de \`cart_payment\` ficam preenchidos 
     ],
     CART: [
       { name: "id", type: "Integer", description: "Identificador da linha." },
-      { name: "company_id", type: "Integer", description: "Empresa dona do carrinho." },
+      { name: "company_id", type: "Integer", description: "Empresa que publica o checkout." },
       { name: "bundle_version_id", type: "Integer", description: "Versao do bundle de origem, quando houver." },
-      { name: "business_unit_id", type: "Integer", description: "Unidade de negocio do carrinho quando ele fica em uma unica BU; nulo em venda mista." },
+      { name: "business_unit_id", type: "Integer", description: "Unidade de negocio do cabecalho quando toda a venda fica em uma unica BU da empresa do checkout; nulo em venda mista." },
       { name: "buyer_reference", type: "Varchar", description: "Referencia do comprador." },
       { name: "commercial_segment", type: "Varchar", description: "Segmento comercial da venda.", values: "B2C | B2B | B2B2C" },
       { name: "status", type: "Varchar", description: "Estado do checkout.", values: "DRAFT | CHECKOUT | COMPLETED | CANCELED | EXPIRED" },
@@ -1447,6 +1501,7 @@ Os exemplos abaixo mostram como os campos de \`cart_payment\` ficam preenchidos 
       { name: "id", type: "Integer", description: "Identificador da linha." },
       { name: "cart_id", type: "Integer", description: "Carrinho pai." },
       { name: "product_version_id", type: "Integer", description: "Versao comercial referenciada." },
+      { name: "company_id", type: "Integer", description: "Empresa congelada da linha." },
       { name: "business_unit_id", type: "Integer", description: "BU congelada da linha." },
       { name: "quantity", type: "Integer", description: "Quantidade do item." },
       { name: "unit_price", type: "Decimal(12,2)", description: "Preco unitario no fechamento." },

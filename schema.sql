@@ -112,8 +112,8 @@ CREATE TABLE bundle_item (
 
 CREATE TABLE cart (
   id INTEGER PRIMARY KEY,
-  company_id INTEGER NOT NULL,
-  business_unit_id INTEGER, -- null when the cart mixes multiple business units
+  company_id INTEGER NOT NULL, -- company that publishes the checkout and payment rules
+  business_unit_id INTEGER, -- null when the cart mixes multiple business units or partner companies
   bundle_version_id INTEGER, -- snapshot of the bundle version used when the cart opened
   buyer_reference VARCHAR(100) NOT NULL,
   commercial_segment VARCHAR(20) NOT NULL DEFAULT 'B2C',
@@ -137,6 +137,7 @@ CREATE TABLE cart_item (
   id INTEGER PRIMARY KEY,
   cart_id INTEGER NOT NULL,
   product_version_id INTEGER NOT NULL,
+  company_id INTEGER NOT NULL, -- snapshot of the line company
   business_unit_id INTEGER NOT NULL, -- snapshot of the line business unit
   quantity INTEGER NOT NULL DEFAULT 1,
   unit_price DECIMAL(12, 2) NOT NULL,
@@ -150,11 +151,14 @@ CREATE TABLE cart_item (
     FOREIGN KEY (cart_id) REFERENCES cart(id),
   CONSTRAINT fk_cart_item_product_version
     FOREIGN KEY (product_version_id) REFERENCES product_version(id),
+  CONSTRAINT fk_cart_item_company
+    FOREIGN KEY (company_id) REFERENCES company(id),
   CONSTRAINT fk_cart_item_business_unit
     FOREIGN KEY (business_unit_id) REFERENCES business_unit(id)
 );
 
 -- checkout_offer modela upsell, cross-sell e cortesia no checkout.
+-- company_id identifica quem publica a oferta; o addon pode vir de empresa parceira.
 CREATE TABLE checkout_offer (
   id INTEGER PRIMARY KEY,
   company_id INTEGER NOT NULL,
@@ -219,7 +223,7 @@ CREATE TABLE payment_method (
     UNIQUE (company_id, code)
 );
 
--- Rules resolve in this order: product override, business unit, segment, then global fallback.
+-- Rules resolve from cart.company_id in this order: product override, business unit, segment, then global fallback.
 CREATE TABLE payment_method_rule (
   id INTEGER PRIMARY KEY,
   company_id INTEGER NOT NULL,
