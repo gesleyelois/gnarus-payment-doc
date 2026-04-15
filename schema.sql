@@ -25,10 +25,25 @@ CREATE TABLE business_unit (
     UNIQUE (company_id, code)
 );
 
+CREATE TABLE product_group (
+  id INTEGER PRIMARY KEY,
+  company_id INTEGER NOT NULL,
+  code VARCHAR(100) NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP,
+  CONSTRAINT fk_product_group_company
+    FOREIGN KEY (company_id) REFERENCES company(id),
+  CONSTRAINT uk_product_group_company_code
+    UNIQUE (company_id, code)
+);
+
 CREATE TABLE product (
   id INTEGER PRIMARY KEY,
   company_id INTEGER NOT NULL,
   business_unit_id INTEGER NOT NULL, -- owning business unit
+  product_group_id INTEGER,
   sku VARCHAR(100) NOT NULL, -- unique within company
   name VARCHAR(255) NOT NULL,
   description VARCHAR(500),
@@ -39,6 +54,8 @@ CREATE TABLE product (
     FOREIGN KEY (company_id) REFERENCES company(id),
   CONSTRAINT fk_product_business_unit
     FOREIGN KEY (business_unit_id) REFERENCES business_unit(id),
+  CONSTRAINT fk_product_product_group
+    FOREIGN KEY (product_group_id) REFERENCES product_group(id),
   CONSTRAINT uk_product_company_sku
     UNIQUE (company_id, sku)
 );
@@ -209,7 +226,6 @@ CREATE TABLE payment_method (
   company_id INTEGER NOT NULL,
   code VARCHAR(50) NOT NULL, -- unique within company
   name VARCHAR(100) NOT NULL,
-  provider VARCHAR(100) NOT NULL,
   active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMP,
   updated_at TIMESTAMP,
@@ -219,35 +235,85 @@ CREATE TABLE payment_method (
     UNIQUE (company_id, code)
 );
 
--- Rules resolve in this order: product override, business unit, segment, then global fallback.
-CREATE TABLE payment_method_rule (
+CREATE TABLE payment_provider (
   id INTEGER PRIMARY KEY,
   company_id INTEGER NOT NULL,
-  scope VARCHAR(20) NOT NULL DEFAULT 'SEGMENT', -- GLOBAL, SEGMENT, BUSINESS_UNIT, PRODUCT
-  product_id INTEGER,
-  business_unit_id INTEGER,
-  commercial_segment VARCHAR(20),
+  code VARCHAR(50) NOT NULL, -- unique within company
+  name VARCHAR(100) NOT NULL,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP,
+  CONSTRAINT fk_payment_provider_company
+    FOREIGN KEY (company_id) REFERENCES company(id),
+  CONSTRAINT uk_payment_provider_company_code
+    UNIQUE (company_id, code)
+);
+
+-- payment_contract is the contract shown in checkout as a provider + method combination.
+CREATE TABLE payment_contract (
+  id INTEGER PRIMARY KEY,
+  company_id INTEGER NOT NULL,
+  payment_provider_id INTEGER NOT NULL,
   payment_method_id INTEGER NOT NULL,
-  priority INTEGER NOT NULL DEFAULT 100, -- lower values first within the same scope
+  code VARCHAR(100) NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP,
+  CONSTRAINT fk_payment_contract_company
+    FOREIGN KEY (company_id) REFERENCES company(id),
+  CONSTRAINT fk_payment_contract_provider
+    FOREIGN KEY (payment_provider_id) REFERENCES payment_provider(id),
+  CONSTRAINT fk_payment_contract_payment_method
+    FOREIGN KEY (payment_method_id) REFERENCES payment_method(id),
+  CONSTRAINT uk_payment_contract_company_code
+    UNIQUE (company_id, code),
+  CONSTRAINT uk_payment_contract_company_provider_method
+    UNIQUE (company_id, payment_provider_id, payment_method_id)
+);
+
+-- product_group defines the default payment contracts for every product attached to it.
+CREATE TABLE product_group_payment_contract (
+  id INTEGER PRIMARY KEY,
+  product_group_id INTEGER NOT NULL,
+  payment_contract_id INTEGER NOT NULL,
+  priority INTEGER NOT NULL DEFAULT 100, -- lower values first
   active BOOLEAN NOT NULL DEFAULT TRUE,
   valid_from TIMESTAMP,
   valid_to TIMESTAMP,
   created_at TIMESTAMP,
   updated_at TIMESTAMP,
-  CONSTRAINT fk_payment_method_rule_company
-    FOREIGN KEY (company_id) REFERENCES company(id),
-  CONSTRAINT fk_payment_method_rule_product
-    FOREIGN KEY (product_id) REFERENCES product(id),
-  CONSTRAINT fk_payment_method_rule_business_unit
-    FOREIGN KEY (business_unit_id) REFERENCES business_unit(id),
-  CONSTRAINT fk_payment_method_rule_payment_method
-    FOREIGN KEY (payment_method_id) REFERENCES payment_method(id)
+  CONSTRAINT fk_product_group_payment_contract_product_group
+    FOREIGN KEY (product_group_id) REFERENCES product_group(id),
+  CONSTRAINT fk_product_group_payment_contract_payment_contract
+    FOREIGN KEY (payment_contract_id) REFERENCES payment_contract(id),
+  CONSTRAINT uk_product_group_payment_contract_history
+    UNIQUE (product_group_id, payment_contract_id, valid_from)
+);
+
+-- product_version override replaces the product group list when active contracts exist.
+CREATE TABLE product_version_payment_contract (
+  id INTEGER PRIMARY KEY,
+  product_version_id INTEGER NOT NULL,
+  payment_contract_id INTEGER NOT NULL,
+  priority INTEGER NOT NULL DEFAULT 100, -- lower values first
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  valid_from TIMESTAMP,
+  valid_to TIMESTAMP,
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP,
+  CONSTRAINT fk_product_version_payment_contract_product_version
+    FOREIGN KEY (product_version_id) REFERENCES product_version(id),
+  CONSTRAINT fk_product_version_payment_contract_payment_contract
+    FOREIGN KEY (payment_contract_id) REFERENCES payment_contract(id),
+  CONSTRAINT uk_product_version_payment_contract_history
+    UNIQUE (product_version_id, payment_contract_id, valid_from)
 );
 
 CREATE TABLE cart_payment (
   id INTEGER PRIMARY KEY,
   cart_id INTEGER NOT NULL,
-  payment_method_id INTEGER NOT NULL,
+  payment_contract_id INTEGER NOT NULL,
   amount DECIMAL(12, 2) NOT NULL,
   status VARCHAR(50) NOT NULL DEFAULT 'PENDING',
   provider_reference VARCHAR(255),
@@ -260,6 +326,6 @@ CREATE TABLE cart_payment (
   updated_at TIMESTAMP,
   CONSTRAINT fk_cart_payment_cart
     FOREIGN KEY (cart_id) REFERENCES cart(id),
-  CONSTRAINT fk_cart_payment_payment_method
-    FOREIGN KEY (payment_method_id) REFERENCES payment_method(id)
+  CONSTRAINT fk_cart_payment_payment_contract
+    FOREIGN KEY (payment_contract_id) REFERENCES payment_contract(id)
 );

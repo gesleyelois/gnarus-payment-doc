@@ -14,25 +14,22 @@ window.DOC_SITE = (() => {
   };
 
   const paymentResolutionTable = {
-    title: "Resolucao dos meios",
+    title: "Hierarquia dos contratos",
     columns: ["Nivel", "Fonte", "Uso"],
     rows: [
-      ["PRODUCT", "payment_method_rule.scope = PRODUCT", "Override para um produto especifico."],
-      ["BUSINESS_UNIT", "payment_method_rule.scope = BUSINESS_UNIT", "Regra para uma unidade de negocio da empresa."],
-      ["SEGMENT", "payment_method_rule.scope = SEGMENT", "Regra padrao para B2C, B2B ou B2B2C."],
-      ["GLOBAL", "payment_method_rule.scope = GLOBAL", "Fallback quando nao houver regra mais especifica."]
+      ["PRODUCT_VERSION", "product_version_payment_contract", "Sobrescreve integralmente o grupo quando houver contrato ativo."],
+      ["PRODUCT_GROUP", "product_group_payment_contract", "Define os contratos padrao do grupo do produto."]
     ]
   };
 
   const paymentPriorityExamplesTable = {
     title: "Exemplos de prioridade",
-    columns: ["Cenario", "Regras que batem", "Ordem final"],
+    columns: ["Cenario", "Contratos que batem", "Ordem final"],
     rows: [
-      ["B2B na empresa A", "SEGMENT:B2B com CARD(10)", "CARD"],
-      ["B2C na empresa A", "SEGMENT:B2C com PIX(10), NUPAY(20), CARD(30), PAYPAL(40)", "PIX, NUPAY, CARD, PAYPAL"],
-      ["BU EDU na empresa A", "BUSINESS_UNIT:EDU com PIX(5), CARD(10)", "PIX, CARD"],
-      ["PRODUCT_I em B2C", "PRODUCT:PRODUCT_I com PIX(1), CARD(2)", "PIX, CARD"],
-      ["Fallback global", "GLOBAL com CARD(100)", "CARD"]
+      ["Grupo ASSINATURA_DIGITAL", "BRADESCO_PIX(10), STRIPE_CARD(20)", "BRADESCO_PIX, STRIPE_CARD"],
+      ["Versao 12m-bonus-2", "NUBANK_NUPAY(5), STRIPE_CARD(10)", "NUBANK_NUPAY, STRIPE_CARD"],
+      ["Versao sem override", "herda BRADESCO_PIX(10), STRIPE_CARD(20)", "BRADESCO_PIX, STRIPE_CARD"],
+      ["Versao com override proprio", "ignora o grupo e usa PICPAY_PIX(10)", "PICPAY_PIX"]
     ]
   };
 
@@ -80,7 +77,7 @@ window.DOC_SITE = (() => {
       id: "pagamento",
       step: "05",
       label: "Pagamento",
-      description: "Meios, regras e tentativa",
+      description: "Provedores, contratos e tentativa",
       href: "./pagamento.html"
     },
     {
@@ -115,8 +112,8 @@ window.DOC_SITE = (() => {
           text: "Cada pagina responde uma pergunta objetiva. A sequencia vai da base do modelo ate os fluxos que cortam mais de uma tabela."
         },
         {
-          title: "Sem mudar a modelagem",
-          text: "A organizacao mudou para melhorar a leitura. Tabelas, campos, estados e regras continuam os mesmos."
+          title: "Pagamento por contrato",
+          text: "A modelagem de pagamento passou a separar provedor, meio, contrato, grupo de produto e override por versao comercial."
         },
         {
           title: "Fluxo canonico",
@@ -132,7 +129,7 @@ window.DOC_SITE = (() => {
           title: "01. Linha de leitura",
           copy: `Vale ler esta wiki na mesma ordem em que o sistema toma as decisoes.
 
-Primeiro vem **a empresa** e o papel da **business unit**. Depois entra **o catalogo**: produto, versao comercial, bundle e oferta configurada. Com isso resolvido, o **checkout** fica claro, porque ele congela um snapshot do que saiu do catalogo. O **pagamento** fecha a jornada com os meios disponiveis e o desfecho da tentativa.
+Primeiro vem **a empresa** e o papel da **business unit**. Depois entra **o catalogo**: grupo de produto, produto, versao comercial, bundle e oferta configurada. Com isso resolvido, o **checkout** fica claro, porque ele congela um snapshot do que saiu do catalogo. O **pagamento** fecha a jornada com os contratos disponiveis e o desfecho da tentativa.
 
 Para ver a historia inteira, do acesso publico ao retorno do gateway, siga para [Regras e fluxos](./regras.html).`,
           tables: [
@@ -144,7 +141,7 @@ Para ver a historia inteira, do acesso publico ao retorno do gateway, siga para 
                 ["Empresa", "Quem define o tenant e o recorte interno?", "company, business_unit e camadas da modelagem."],
                 ["Catalogo", "O que pode ser vendido?", "product, product_version, bundle e checkout_offer."],
                 ["Checkout", "O que fica congelado na compra?", "cart, cart_item, cart_offer e venda mista."],
-                ["Pagamento", "Como o meio aparece e como a tentativa termina?", "payment_method, payment_method_rule e cart_payment."],
+                ["Pagamento", "Como o contrato aparece e como a tentativa termina?", "payment_provider, payment_method, payment_contract e cart_payment."],
                 ["Regras e fluxos", "Como tudo se encadeia do inicio ao fim?", "Jornadas ponta a ponta e regras de negocio."]
               ]
             }
@@ -166,7 +163,7 @@ Essa divisao deixa cada assunto no seu lugar e evita misturar empresa, catalogo,
                 ["Catalogo", "O que pode ser vendido e em que versao.", "product, product_version"],
                 ["Bundle e ofertas", "Composicoes e sugestoes opcionais.", "bundle, bundle_version, bundle_item, checkout_offer"],
                 ["Checkout", "Snapshot da compra.", "cart, cart_item, cart_offer"],
-                ["Pagamento", "Disponibilidade de meios e desfecho da tentativa.", "payment_method, payment_method_rule, cart_payment"]
+                ["Pagamento", "Disponibilidade de contratos e desfecho da tentativa.", "payment_provider, payment_method, payment_contract, cart_payment"]
               ]
             }
           ],
@@ -211,8 +208,12 @@ Nao e uma lista para decorar. O ponto aqui e sair com o papel de cada conceito b
                 ["cart", "Cabecalho do checkout.", "Checkout"],
                 ["cart_item", "Snapshot da linha comprada.", "Checkout"],
                 ["cart_offer", "Registro da oferta exibida e da decisao do comprador.", "Checkout"],
+                ["product_group", "Agrupa produtos para definir contratos padrao.", "Catalogo"],
+                ["payment_provider", "Provedor habilitado na empresa.", "Pagamento"],
                 ["payment_method", "Meio de pagamento disponivel na empresa.", "Pagamento"],
-                ["payment_method_rule", "Regra que define quais meios aparecem no checkout.", "Pagamento"],
+                ["payment_contract", "Combinacao de provedor e meio usada no checkout.", "Pagamento"],
+                ["product_group_payment_contract", "Contratos padrao do grupo.", "Pagamento"],
+                ["product_version_payment_contract", "Override de contratos da versao comercial.", "Pagamento"],
                 ["cart_payment", "Tentativa de pagamento.", "Pagamento"]
               ]
             }
@@ -259,7 +260,7 @@ Nao e uma lista para decorar. O ponto aqui e sair com o papel de cada conceito b
           title: "01. Empresa e unidade de negocio",
           copy: `\`company\` define o tenant. Consulta publica, carrinho e regra de pagamento sempre nascem dessa empresa.
 
-\`business_unit\` e um recorte dentro da empresa. Ela organiza o catalogo e pode restringir algumas regras. Quando o carrinho mistura linhas de BUs diferentes, o cabecalho pode ficar sem \`business_unit_id\`.`,
+\`business_unit\` e um recorte dentro da empresa. Ela organiza o catalogo. Quando o carrinho mistura linhas de BUs diferentes, o cabecalho pode ficar sem \`business_unit_id\`.`,
           tables: [
             {
               title: "Valores controlados",
@@ -274,7 +275,7 @@ Nao e uma lista para decorar. O ponto aqui e sair com o papel de cada conceito b
               columns: ["Entidade", "Papel", "Impacto no fluxo"],
               rows: [
                 ["company", "Tenant da venda.", "Delimita catalogo, checkout e pagamento."],
-                ["business_unit", "Recorte interno da empresa.", "Organiza produto e pode participar da resolucao dos meios."],
+                ["business_unit", "Recorte interno da empresa.", "Organiza produto e o contexto operacional."],
                 ["product", "Item de catalogo da empresa.", "Sempre aponta para uma BU."],
                 ["cart", "Checkout da empresa.", "Pode ter BU unica ou ficar nulo em venda mista."]
               ]
@@ -301,9 +302,12 @@ Esses codigos nao sao globais. Eles sao unicos **dentro da empresa**. Isso permi
               rows: [
                 ["company.code", "Identificador publico da empresa.", "GROUP_A"],
                 ["business_unit.code", "Unico por company.", "EDU"],
+                ["product_group.code", "Unico por company.", "ASSINATURA_DIGITAL"],
                 ["product.sku", "Unico por company.", "PLUS"],
                 ["bundle.code", "Unico por company.", "BUNDLE-PLUS"],
-                ["payment_method.code", "Unico por company.", "PIX"]
+                ["payment_provider.code", "Unico por company.", "STRIPE"],
+                ["payment_method.code", "Unico por company.", "PIX"],
+                ["payment_contract.code", "Unico por company.", "STRIPE_CARD"]
               ]
             },
             {
@@ -315,8 +319,12 @@ Esses codigos nao sao globais. Eles sao unicos **dentro da empresa**. Isso permi
                 ["checkout_offer", "obrigatorio", "-", "Oferta opcional ligada ao catalogo."],
                 ["cart", "obrigatorio", "opcional", "Checkout da empresa."],
                 ["cart_item", "via cart", "obrigatorio", "Snapshot da linha comprada."],
-                ["payment_method", "obrigatorio", "-", "Meio liberado por empresa."],
-                ["payment_method_rule", "obrigatorio", "opcional", "Regra aplicada dentro da empresa."]
+                ["product_group", "obrigatorio", "-", "Agrupamento opcional de contratos por produto."],
+                ["payment_provider", "obrigatorio", "-", "Provedor habilitado por empresa."],
+                ["payment_method", "obrigatorio", "-", "Meio habilitado por empresa."],
+                ["payment_contract", "obrigatorio", "-", "Combinacao publica de provedor e meio."],
+                ["product_group_payment_contract", "via product_group", "-", "Contratos padrao do grupo."],
+                ["product_version_payment_contract", "via product_version", "-", "Override da versao comercial."]
               ]
             }
           ]
@@ -337,7 +345,7 @@ Os detalhes ficam nas proximas paginas. Por enquanto, o importante e localizar c
                 ["Bundle", "bundle, bundle_version, bundle_item", "Composicao publica versionada."],
                 ["Ofertas", "checkout_offer, cart_offer", "Addons opcionais no checkout."],
                 ["Checkout", "cart, cart_item", "Snapshot da compra."],
-                ["Pagamento", "payment_method, payment_method_rule, cart_payment", "Meios e desfecho da tentativa."]
+                ["Pagamento", "payment_provider, payment_method, payment_contract, cart_payment", "Contratos e desfecho da tentativa."]
               ]
             }
           ],
@@ -346,6 +354,7 @@ Os detalhes ficam nas proximas paginas. Por enquanto, o importante e localizar c
 
   subgraph CATALOGO["Catalogo"]
     BUSINESS_UNIT[business_unit]
+    PRODUCT_GROUP[product_group]
     PRODUCT[product]
     PRODUCT_VERSION[product_version]
   end
@@ -367,14 +376,19 @@ Os detalhes ficam nas proximas paginas. Por enquanto, o importante e localizar c
   end
 
   subgraph PAGAMENTO_GROUP["Pagamento"]
+    PAYMENT_PROVIDER[payment_provider]
     PAYMENT_METHOD[payment_method]
-    PAYMENT_METHOD_RULE[payment_method_rule]
+    PAYMENT_CONTRACT[payment_contract]
+    GROUP_CONTRACT[product_group_payment_contract]
+    VERSION_CONTRACT[product_version_payment_contract]
     CART_PAYMENT[cart_payment]
   end
 
   COMPANY --> BUSINESS_UNIT
+  COMPANY --> PRODUCT_GROUP
   COMPANY --> PRODUCT
   BUSINESS_UNIT --> PRODUCT
+  PRODUCT_GROUP --> PRODUCT
   PRODUCT --> PRODUCT_VERSION
 
   COMPANY --> BUNDLE
@@ -393,22 +407,28 @@ Os detalhes ficam nas proximas paginas. Por enquanto, o importante e localizar c
   CART --> CART_ITEM
   PRODUCT_VERSION --> CART_ITEM
 
+  COMPANY --> PAYMENT_PROVIDER
   COMPANY --> PAYMENT_METHOD
-  COMPANY --> PAYMENT_METHOD_RULE
-  BUSINESS_UNIT --> PAYMENT_METHOD_RULE
-  PRODUCT --> PAYMENT_METHOD_RULE
-  PAYMENT_METHOD --> PAYMENT_METHOD_RULE
-  PAYMENT_METHOD --> CART_PAYMENT
+  COMPANY --> PAYMENT_CONTRACT
+  PAYMENT_PROVIDER --> PAYMENT_CONTRACT
+  PAYMENT_METHOD --> PAYMENT_CONTRACT
+  PRODUCT_GROUP --> GROUP_CONTRACT
+  PAYMENT_CONTRACT --> GROUP_CONTRACT
+  PRODUCT_VERSION --> VERSION_CONTRACT
+  PAYMENT_CONTRACT --> VERSION_CONTRACT
+  PAYMENT_CONTRACT --> CART_PAYMENT
   CART --> CART_PAYMENT`,
           subsections: [
             {
               id: "empresa-camadas-catalogo",
               title: "Catalogo",
-              copy: `Esse bloco concentra empresa, unidade de negocio, produto e versao comercial. E onde a modelagem responde **o que a empresa vende**.`,
+              copy: `Esse bloco concentra empresa, unidade de negocio, grupo de produtos, produto e versao comercial. E onde a modelagem responde **o que a empresa vende**.`,
               diagram: `erDiagram
   COMPANY ||--o{ BUSINESS_UNIT : "1:N"
+  COMPANY ||--o{ PRODUCT_GROUP : "1:N"
   COMPANY ||--o{ PRODUCT : "1:N"
   BUSINESS_UNIT ||--o{ PRODUCT : "0:N"
+  PRODUCT_GROUP ||--o{ PRODUCT : "0:N"
   PRODUCT ||--o{ PRODUCT_VERSION : "1:N"`
             },
             {
@@ -446,14 +466,18 @@ Os detalhes ficam nas proximas paginas. Por enquanto, o importante e localizar c
             {
               id: "empresa-camadas-pagamento",
               title: "Pagamento",
-              copy: `A camada de pagamento define quais meios podem aparecer e registra o desfecho da tentativa em \`cart_payment\`.`,
+              copy: `A camada de pagamento define quais contratos podem aparecer e registra o desfecho da tentativa em \`cart_payment\`.`,
               diagram: `erDiagram
+  COMPANY ||--o{ PAYMENT_PROVIDER : "1:N"
   COMPANY ||--o{ PAYMENT_METHOD : "1:N"
-  COMPANY ||--o{ PAYMENT_METHOD_RULE : "1:N"
-  BUSINESS_UNIT ||--o{ PAYMENT_METHOD_RULE : "0:N"
-  PRODUCT ||--o{ PAYMENT_METHOD_RULE : "0:N"
-  PAYMENT_METHOD ||--o{ PAYMENT_METHOD_RULE : "1:N"
-  PAYMENT_METHOD ||--o{ CART_PAYMENT : "1:N"`
+  COMPANY ||--o{ PAYMENT_CONTRACT : "1:N"
+  PAYMENT_PROVIDER ||--o{ PAYMENT_CONTRACT : "1:N"
+  PAYMENT_METHOD ||--o{ PAYMENT_CONTRACT : "1:N"
+  PRODUCT_GROUP ||--o{ PRODUCT_GROUP_PAYMENT_CONTRACT : "1:N"
+  PAYMENT_CONTRACT ||--o{ PRODUCT_GROUP_PAYMENT_CONTRACT : "1:N"
+  PRODUCT_VERSION ||--o{ PRODUCT_VERSION_PAYMENT_CONTRACT : "1:N"
+  PAYMENT_CONTRACT ||--o{ PRODUCT_VERSION_PAYMENT_CONTRACT : "1:N"
+  PAYMENT_CONTRACT ||--o{ CART_PAYMENT : "1:N"`
             }
           ]
         }
@@ -498,7 +522,7 @@ Os detalhes ficam nas proximas paginas. Por enquanto, o importante e localizar c
           title: "01. Produto",
           copy: `\`product\` e o item de catalogo da empresa. Ele responde **o que esta sendo vendido**.
 
-\`company_id\` delimita o tenant e \`business_unit_id\` e obrigatorio. O \`sku\` identifica o produto na camada publica dentro da empresa.
+\`company_id\` delimita o tenant, \`business_unit_id\` e obrigatorio e \`product_group_id\` aponta o grupo que define os contratos padrao do produto. O \`sku\` identifica o produto na camada publica dentro da empresa.
 
 Prazo, preco e bonus nao ficam no produto. Esses termos moram em \`product_version\`, que tambem carrega o codigo publico da oferta comercial.`,
           tables: [
@@ -508,6 +532,7 @@ Prazo, preco e bonus nao ficam no produto. Esses termos moram em \`product_versi
               rows: [
                 ["company_id", "Obrigatorio.", "1"],
                 ["business_unit_id", "Obrigatorio.", "1"],
+                ["product_group_id", "Opcional.", "10"],
                 ["sku", "Unico por company.", "PLUS"]
               ]
             },
@@ -529,6 +554,7 @@ Prazo, preco e bonus nao ficam no produto. Esses termos moram em \`product_versi
           diagram: `erDiagram
   PRODUCT {
     INTEGER id
+    INTEGER product_group_id
     VARCHAR sku
     VARCHAR name
   }
@@ -544,9 +570,13 @@ Prazo, preco e bonus nao ficam no produto. Esses termos moram em \`product_versi
     TIMESTAMP valid_from
     TIMESTAMP valid_to
   }`,
-          sql: `INSERT INTO product (id, company_id, business_unit_id, sku, name, description, status, created_at, updated_at)
+          sql: `INSERT INTO product_group (id, company_id, code, name, status, created_at, updated_at)
 VALUES
-  (1, 1, 1, 'CURSO-IA', 'Curso de IA aplicado', 'Produto digital principal', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`
+  (10, 1, 'ASSINATURA_DIGITAL', 'Assinatura digital', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+INSERT INTO product (id, company_id, business_unit_id, product_group_id, sku, name, description, status, created_at, updated_at)
+VALUES
+  (1, 1, 1, 10, 'CURSO-IA', 'Curso de IA aplicado', 'Produto digital principal', 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`
         },
         {
           id: "catalogo-versao-comercial",
@@ -908,17 +938,17 @@ Nesse caso, o cabecalho continua ligado a \`company\` e ao segmento comercial, m
     },
     pagamento: {
       metaTitle: "Pagamento",
-      metaDescription: "Meios de pagamento, regras de disponibilidade e desfecho da tentativa.",
+      metaDescription: "Provedores, contratos de pagamento e desfecho da tentativa.",
       badge: "Pagina 05",
       kicker: "Desfecho financeiro",
-      title: "Meios, regras e tentativa de pagamento",
+      title: "Provedores, contratos e tentativa de pagamento",
       summary:
-        "Pagamento junta duas discussoes: como os meios entram no checkout e como a tentativa termina em PENDING, APPROVED ou FAILED.",
-      tags: ["payment_method", "payment_method_rule", "cart_payment", "PENDING", "APPROVED", "FAILED"],
+        "Pagamento junta duas discussoes: como os contratos entram no checkout e como a tentativa termina em PENDING, APPROVED ou FAILED.",
+      tags: ["payment_provider", "payment_method", "payment_contract", "cart_payment", "PENDING", "APPROVED", "FAILED"],
       panelTitle: "No fim da leitura",
       panelItems: [
-        "como os meios sao cadastrados",
-        "qual regra ganha na precedencia",
+        "como provedores, meios e contratos sao cadastrados",
+        "quando a versao comercial sobrescreve o grupo",
         "como ler os campos de cart_payment",
         "onde consultar o ciclo de estados"
       ],
@@ -928,8 +958,8 @@ Nesse caso, o cabecalho continua ligado a \`company\` e ao segmento comercial, m
           text: "Na v1, toda tentativa comeca em PENDING e so sai desse estado quando o provedor devolve sucesso ou falha."
         },
         {
-          title: "Resolucao nao mescla scopes",
-          text: "O primeiro nivel com regra ativa vence. Dentro desse nivel, priority menor aparece primeiro."
+          title: "Versao sobrescreve o grupo",
+          text: "Se houver contrato ativo na versao comercial, o checkout usa so essa lista. Sem override, herda o grupo do produto."
         },
         {
           title: "Resultado fica em cart_payment",
@@ -937,87 +967,96 @@ Nesse caso, o cabecalho continua ligado a \`company\` e ao segmento comercial, m
         }
       ],
       sidebarTitle: "Pagamento",
-      sidebarCopy: "Primeiro veja como os meios sao resolvidos. Depois passe para o desfecho da tentativa.",
+      sidebarCopy: "Primeiro veja como os contratos sao resolvidos. Depois passe para o desfecho da tentativa.",
       sections: [
         {
-          id: "pagamento-meios",
+          id: "pagamento-cadastro",
           label: "Cadastro",
-          title: "01. Meios de pagamento",
-          copy: `\`payment_method\` representa um meio disponivel dentro da empresa.
+          title: "01. Provedor, meio e contrato",
+          copy: `\`payment_provider\` cadastra quem processa a tentativa. \`payment_method\` cadastra o meio exibido ao comprador. \`payment_contract\` junta os dois em uma combinacao valida para o checkout.
 
-O codigo do meio nao e global. Ele e unico dentro do tenant. Isso vale para \`PIX\`, \`CARD\`, \`PAYPAL\` e \`NUPAY\`.`,
+O codigo de provedor, meio e contrato nao e global. Cada um e unico dentro do tenant.`,
           tables: [
             {
               title: "Valores controlados",
               columns: ["Campo", "Descricao", "Valores"],
               rows: [
+                ["payment_provider.active", "Disponibilidade do provedor.", "true | false"],
                 ["payment_method.code", "Codigo do meio de pagamento.", "PIX | CARD | PAYPAL | NUPAY"],
-                ["payment_method.active", "Disponibilidade do meio.", "true | false"]
+                ["payment_method.active", "Disponibilidade do meio.", "true | false"],
+                ["payment_contract.active", "Disponibilidade do contrato.", "true | false"]
               ]
             },
             {
               title: "Leitura do cadastro",
-              columns: ["Campo", "Uso", "Observacao"],
+              columns: ["Tabela", "Uso", "Observacao"],
               rows: [
-                ["company_id", "Delimita o tenant.", "Dois tenants podem ter meios com o mesmo code."],
-                ["code", "Identificador funcional do meio.", "Usado pelas regras."],
-                ["provider", "Gateway ou adquirente.", "Explica de onde vira o retorno externo."]
+                ["payment_provider", "Define o processador da tentativa.", "Ex.: STRIPE, BRADESCO, NUBANK."],
+                ["payment_method", "Define o meio exibido ao comprador.", "Ex.: PIX, CARD, PAYPAL, NUPAY."],
+                ["payment_contract", "Combina provedor e meio.", "Essa combinacao e a unidade usada pelo checkout."]
               ]
             }
           ],
           diagram: `erDiagram
+  COMPANY ||--o{ PAYMENT_PROVIDER : "1:N"
   COMPANY ||--o{ PAYMENT_METHOD : "1:N"
-  COMPANY ||--o{ PAYMENT_METHOD_RULE : "1:N"
-  PAYMENT_METHOD ||--o{ PAYMENT_METHOD_RULE : "1:N"
-  PAYMENT_METHOD ||--o{ CART_PAYMENT : "1:N"`
+  COMPANY ||--o{ PAYMENT_CONTRACT : "1:N"
+  PAYMENT_PROVIDER ||--o{ PAYMENT_CONTRACT : "1:N"
+  PAYMENT_METHOD ||--o{ PAYMENT_CONTRACT : "1:N"
+  PAYMENT_CONTRACT ||--o{ CART_PAYMENT : "1:N"`,
+          sql: `INSERT INTO payment_provider (id, company_id, code, name, active, created_at, updated_at)
+VALUES
+  (1, 1, 'BRADESCO', 'Bradesco', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (2, 1, 'STRIPE', 'Stripe', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (3, 1, 'NUBANK', 'NuBank', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+INSERT INTO payment_method (id, company_id, code, name, active, created_at, updated_at)
+VALUES
+  (1, 1, 'PIX', 'Pix', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (2, 1, 'CARD', 'Cartao de credito', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (3, 1, 'NUPAY', 'NuPay', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+INSERT INTO payment_contract (id, company_id, payment_provider_id, payment_method_id, code, name, active, created_at, updated_at)
+VALUES
+  (1, 1, 1, 1, 'BRADESCO_PIX', 'Bradesco Pix', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (2, 1, 2, 2, 'STRIPE_CARD', 'Stripe Cartao', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (3, 1, 3, 3, 'NUBANK_NUPAY', 'NuBank NuPay', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`
         },
         {
-          id: "pagamento-regras",
+          id: "pagamento-contratos",
           label: "Disponibilidade",
-          title: "02. Regras de disponibilidade dos meios",
-          copy: `\`payment_method_rule\` define quais meios podem aparecer para um carrinho.
+          title: "02. Contratos por grupo e por versao",
+          copy: `\`product_group_payment_contract\` define os contratos padrao do grupo. \`product_version_payment_contract\` define um override da versao comercial.
 
-A leitura sempre parte da empresa do checkout. Depois pode haver refinamento por produto, por business unit ou por segmento comercial. Os niveis nao se misturam: o primeiro scope com regra ativa vence e so ele entra na lista.`,
+Quando houver ao menos um contrato ativo na versao, a lista da versao substitui integralmente a do grupo. Quando nao houver override ativo, o checkout herda os contratos do \`product_group\` ligado ao produto.`,
           tables: [
-            {
-              title: "Valores controlados",
-              columns: ["Campo", "Descricao", "Valores"],
-              rows: [["payment_method_rule.scope", "Nivel da regra.", "GLOBAL | SEGMENT | BUSINESS_UNIT | PRODUCT"]]
-            },
             paymentResolutionTable,
             {
-              title: "Precedencia",
+              title: "Leitura da regra",
               columns: ["Chave", "Leitura", "Uso"],
               rows: [
-                ["scope", "PRODUCT > BUSINESS_UNIT > SEGMENT > GLOBAL", "Primeiro nivel com regras ativas vence."],
-                ["priority", "menor valor primeiro", "Ordena os meios dentro do mesmo nivel."]
+                ["product.product_group_id", "Aponta o grupo padrao do produto.", "Define de onde vem a lista herdada."],
+                ["product_version_payment_contract", "Se houver contrato ativo, vence.", "Sobrescreve integralmente o grupo."],
+                ["priority", "menor valor primeiro", "Ordena os contratos dentro do mesmo nivel."]
               ]
             }
           ],
           diagram: `flowchart LR
-  COMPANY[company] --> CART[cart]
-  CART --> RULE[payment_method_rule]
-  PRODUCT[product opcional] --> RULE
-  RULE --> METHOD[payment_method]`,
-          sql: `INSERT INTO payment_method (id, company_id, code, name, provider, active, created_at, updated_at)
+  PRODUCT_GROUP[product_group] --> GROUP_RULE[product_group_payment_contract]
+  PRODUCT[product] --> PRODUCT_GROUP
+  PRODUCT --> PRODUCT_VERSION[product_version]
+  PRODUCT_VERSION --> VERSION_RULE[product_version_payment_contract]
+  GROUP_RULE --> CONTRACT[payment_contract]
+  VERSION_RULE --> CONTRACT`,
+          sql: `INSERT INTO product_group_payment_contract (id, product_group_id, payment_contract_id, priority, active, valid_from, valid_to, created_at, updated_at)
 VALUES
-  (1, 1, 'PIX', 'Pix', 'BRADESCO', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  (2, 1, 'CARD', 'Cartao de credito', 'STRIPE', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  (3, 1, 'PAYPAL', 'PayPal', 'PAYPAL', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  (4, 1, 'NUPAY', 'NuPay', 'NUBANK', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+  (1, 10, 1, 10, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (2, 10, 2, 20, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
-INSERT INTO payment_method_rule (id, company_id, scope, product_id, business_unit_id, commercial_segment, payment_method_id, priority, active, valid_from, valid_to, created_at, updated_at)
+INSERT INTO product_version_payment_contract (id, product_version_id, payment_contract_id, priority, active, valid_from, valid_to, created_at, updated_at)
 VALUES
-  (1, 1, 'GLOBAL', NULL, NULL, NULL, 2, 100, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  (2, 1, 'SEGMENT', NULL, NULL, 'B2B', 2, 10, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  (3, 1, 'SEGMENT', NULL, NULL, 'B2C', 1, 10, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  (4, 1, 'SEGMENT', NULL, NULL, 'B2C', 4, 20, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  (5, 1, 'SEGMENT', NULL, NULL, 'B2C', 2, 30, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  (6, 1, 'SEGMENT', NULL, NULL, 'B2C', 3, 40, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  (7, 1, 'BUSINESS_UNIT', NULL, 1, NULL, 1, 5, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  (8, 1, 'BUSINESS_UNIT', NULL, 1, NULL, 2, 10, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  (9, 1, 'PRODUCT', 1, NULL, NULL, 1, 1, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  (10, 1, 'PRODUCT', 1, NULL, NULL, 2, 2, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`
+  (1, 2, 3, 5, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (2, 2, 2, 10, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`
         },
         {
           id: "pagamento-tentativa",
@@ -1025,12 +1064,13 @@ VALUES
           title: "03. cart_payment",
           copy: `\`cart_payment\` registra uma tentativa de pagamento ligada ao carrinho.
 
-Na v1, ela nasce em \`PENDING\`. Se o provedor aprovar, vai para \`APPROVED\`. Se recusar, vai para \`FAILED\`.`,
+Na v1, ela nasce em \`PENDING\`. Se o provedor aprovar, vai para \`APPROVED\`. Se recusar, vai para \`FAILED\`. A referencia principal da tentativa e \`payment_contract_id\`, porque o checkout escolhe uma combinacao de provedor e meio.`,
           tables: [
             {
               title: "Campos de resultado",
               columns: ["Campo", "Uso", "Quando preencher"],
               rows: [
+                ["payment_contract_id", "Contrato escolhido no checkout.", "Sempre na criacao da tentativa."],
                 ["provider_reference", "Referencia externa da tentativa.", "Quando o provedor retorna um identificador da operacao."],
                 ["authorization_code", "Codigo de aprovacao ou autorizacao.", "Quando a tentativa termina em APPROVED e o provedor fornece esse dado."],
                 ["failure_code", "Codigo da recusa retornado pelo provedor.", "Quando a tentativa termina em FAILED."],
@@ -1049,7 +1089,7 @@ Na v1, ela nasce em \`PENDING\`. Se o provedor aprovar, vai para \`APPROVED\`. S
               ]
             }
           ],
-          sql: `INSERT INTO cart_payment (id, cart_id, payment_method_id, amount, status, provider_reference, authorization_code, failure_code, failure_message, approved_at, failed_at, created_at, updated_at)
+          sql: `INSERT INTO cart_payment (id, cart_id, payment_contract_id, amount, status, provider_reference, authorization_code, failure_code, failure_message, approved_at, failed_at, created_at, updated_at)
 VALUES
   (1, 1, 2, 199.90, 'PENDING', NULL, NULL, NULL, NULL, NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`
         },
@@ -1096,13 +1136,13 @@ Exemplos concretos de retorno do gateway ficam em [Regras e fluxos](./regras.htm
       kicker: "Ponto canonico dos fluxos",
       title: "Regras de negocio e fluxos ponta a ponta",
       summary:
-        "Quando uma regra atravessa mais de uma entidade, a consulta certa e esta pagina. Ela concentra as jornadas publicas, a resolucao dos meios e os exemplos de retorno do gateway.",
-      tags: ["sku", "product_version.code", "bundle.code", "checkout_offer", "meios", "gateway"],
+        "Quando uma regra atravessa mais de uma entidade, a consulta certa e esta pagina. Ela concentra as jornadas publicas, a resolucao dos contratos e os exemplos de retorno do gateway.",
+      tags: ["sku", "product_version.code", "bundle.code", "checkout_offer", "contratos", "gateway"],
       panelTitle: "Use esta pagina quando",
       panelItems: [
         "precisar ver a historia completa",
         "quiser revisar um fluxo ponta a ponta",
-        "buscar a regra canonica de meios",
+        "buscar a regra canonica de contratos",
         "quiser exemplos de retorno do gateway"
       ],
       summaryCards: [
@@ -1290,26 +1330,30 @@ O cabecalho do checkout continua apontando para a empresa e para o segmento come
         {
           id: "fluxo-meios-pagamento",
           label: "Regra canonica",
-          title: "05. Resolucao dos meios de pagamento",
-          copy: `A lista de meios parte da empresa do carrinho. Depois o sistema procura o primeiro scope com regra ativa na ordem PRODUCT, BUSINESS_UNIT, SEGMENT e GLOBAL.
+          title: "05. Resolucao dos contratos de pagamento",
+          copy: `A lista de contratos parte do \`product_group\` ligado ao produto. Se a versao comercial tiver contratos ativos em \`product_version_payment_contract\`, essa lista sobrescreve a do grupo.
 
-Em venda mista, a regra de business unit so vale quando a compra fecha em uma unica BU. Nos demais casos, a resolucao segue produto, segmento ou fallback global.`,
+Nao ha mescla entre grupo e versao. O checkout usa uma lista ou outra e ordena os contratos por \`priority\`.`,
           tables: [
             {
-              title: "Precedencia",
+              title: "Hierarquia",
               columns: ["Chave", "Leitura", "Uso"],
               rows: [
-                ["scope", "PRODUCT > BUSINESS_UNIT > SEGMENT > GLOBAL", "Primeiro nivel com regras ativas vence."],
-                ["priority", "menor valor primeiro", "Ordena os meios dentro do mesmo nivel."]
+                ["product.product_group_id", "Aponta o grupo padrao do produto.", "Base da lista herdada."],
+                ["product_version_payment_contract", "Quando houver ao menos um contrato ativo, substitui o grupo.", "Override da oferta comercial."],
+                ["priority", "menor valor primeiro", "Ordena os contratos dentro do grupo ou da versao."]
               ]
             },
             paymentPriorityExamplesTable
           ],
           diagram: `flowchart LR
-  COMPANY[company] --> CART[cart.commercial_segment]
-  CART --> RULE[payment_method_rule]
-  PRODUCT[product opcional] --> RULE
-  RULE --> METHOD[payment_method]`
+  PRODUCT[product] --> GROUP[product_group]
+  GROUP --> GROUP_RULE[product_group_payment_contract]
+  PRODUCT --> VERSION[product_version]
+  VERSION --> VERSION_RULE[product_version_payment_contract]
+  GROUP_RULE --> CONTRACT[payment_contract]
+  VERSION_RULE --> CONTRACT
+  CONTRACT --> CART_PAYMENT[cart_payment]`
         },
         {
           id: "fluxo-desfecho-pagamento",
@@ -1317,16 +1361,15 @@ Em venda mista, a regra de business unit so vale quando a compra fecha em uma un
           title: "06. Tentativa e desfecho do pagamento",
           copy: `A tentativa nasce em \`PENDING\`. O provedor decide se ela vira \`APPROVED\` ou \`FAILED\`.
 
-Os exemplos abaixo mostram como os campos de \`cart_payment\` ficam preenchidos de acordo com o retorno do gateway.`,
+Os exemplos abaixo mostram como os campos de \`cart_payment\` ficam preenchidos de acordo com o retorno do gateway para o contrato escolhido.`,
           tables: [
             {
-              title: "Cenarios por meio",
-              columns: ["Meio", "Tempo", "Estado inicial", "Estado final"],
+              title: "Cenarios por contrato",
+              columns: ["Contrato", "Tempo", "Estado inicial", "Estado final"],
               rows: [
-                ["CARD", "Sincrono", "PENDING", "APPROVED ou FAILED"],
-                ["PIX", "Assincrono", "PENDING", "APPROVED ou FAILED"],
-                ["NUPAY", "Assincrono", "PENDING", "APPROVED ou FAILED"],
-                ["PAYPAL", "Assincrono", "PENDING", "APPROVED ou FAILED"]
+                ["STRIPE_CARD", "Sincrono", "PENDING", "APPROVED ou FAILED"],
+                ["BRADESCO_PIX", "Assincrono", "PENDING", "APPROVED ou FAILED"],
+                ["NUBANK_NUPAY", "Assincrono", "PENDING", "APPROVED ou FAILED"]
               ]
             },
             {
@@ -1362,10 +1405,20 @@ Os exemplos abaixo mostram como os campos de \`cart_payment\` ficam preenchidos 
       { name: "created_at", type: "Timestamp", description: "Data de criacao." },
       { name: "updated_at", type: "Timestamp", description: "Data da ultima atualizacao." }
     ],
+    PRODUCT_GROUP: [
+      { name: "id", type: "Integer", description: "Identificador da linha." },
+      { name: "company_id", type: "Integer", description: "Empresa dona do grupo." },
+      { name: "code", type: "Varchar", description: "Codigo do grupo dentro da empresa." },
+      { name: "name", type: "Varchar", description: "Nome do grupo de produtos." },
+      { name: "status", type: "Varchar", description: "Disponibilidade do grupo.", values: "ACTIVE | INACTIVE" },
+      { name: "created_at", type: "Timestamp", description: "Data de criacao." },
+      { name: "updated_at", type: "Timestamp", description: "Data da ultima atualizacao." }
+    ],
     PRODUCT: [
       { name: "id", type: "Integer", description: "Identificador da linha." },
       { name: "company_id", type: "Integer", description: "Empresa dona do produto." },
       { name: "business_unit_id", type: "Integer", description: "Unidade de negocio do produto." },
+      { name: "product_group_id", type: "Integer", description: "Grupo que define os contratos padrao do produto." },
       { name: "sku", type: "Varchar", description: "SKU unico do produto dentro da empresa." },
       { name: "name", type: "Varchar", description: "Nome comercial." },
       { name: "description", type: "Varchar", description: "Descricao opcional." },
@@ -1475,30 +1528,56 @@ Os exemplos abaixo mostram como os campos de \`cart_payment\` ficam preenchidos 
       { name: "company_id", type: "Integer", description: "Empresa dona do meio." },
       { name: "code", type: "Varchar", description: "Codigo do meio de pagamento dentro da empresa.", values: "PIX | CARD | PAYPAL | NUPAY" },
       { name: "name", type: "Varchar", description: "Nome exibido." },
-      { name: "provider", type: "Varchar", description: "Gateway ou adquirente." },
       { name: "active", type: "Boolean", description: "Indica se o meio esta habilitado." },
       { name: "created_at", type: "Timestamp", description: "Data de criacao." },
       { name: "updated_at", type: "Timestamp", description: "Data da ultima atualizacao." }
     ],
-    PAYMENT_METHOD_RULE: [
+    PAYMENT_PROVIDER: [
       { name: "id", type: "Integer", description: "Identificador da linha." },
-      { name: "company_id", type: "Integer", description: "Empresa dona da regra." },
-      { name: "scope", type: "Varchar", description: "Nivel da regra.", values: "GLOBAL | SEGMENT | BUSINESS_UNIT | PRODUCT" },
-      { name: "product_id", type: "Integer", description: "Produto da excecao, quando houver." },
-      { name: "business_unit_id", type: "Integer", description: "Unidade de negocio da regra, quando houver." },
-      { name: "commercial_segment", type: "Varchar", description: "Segmento da regra, quando houver.", values: "B2C | B2B | B2B2C" },
-      { name: "payment_method_id", type: "Integer", description: "Meio liberado pela regra." },
-      { name: "priority", type: "Integer", description: "Ordem de precedencia da regra." },
-      { name: "active", type: "Boolean", description: "Indica se a regra esta habilitada." },
-      { name: "valid_from", type: "Timestamp", description: "Inicio da vigencia da regra." },
-      { name: "valid_to", type: "Timestamp", description: "Fim da vigencia da regra." },
+      { name: "company_id", type: "Integer", description: "Empresa dona do provedor." },
+      { name: "code", type: "Varchar", description: "Codigo do provedor dentro da empresa." },
+      { name: "name", type: "Varchar", description: "Nome exibido do provedor." },
+      { name: "active", type: "Boolean", description: "Indica se o provedor esta habilitado." },
+      { name: "created_at", type: "Timestamp", description: "Data de criacao." },
+      { name: "updated_at", type: "Timestamp", description: "Data da ultima atualizacao." }
+    ],
+    PAYMENT_CONTRACT: [
+      { name: "id", type: "Integer", description: "Identificador da linha." },
+      { name: "company_id", type: "Integer", description: "Empresa dona do contrato." },
+      { name: "payment_provider_id", type: "Integer", description: "Provedor usado na combinacao." },
+      { name: "payment_method_id", type: "Integer", description: "Meio usado na combinacao." },
+      { name: "code", type: "Varchar", description: "Codigo do contrato dentro da empresa." },
+      { name: "name", type: "Varchar", description: "Nome exibido do contrato." },
+      { name: "active", type: "Boolean", description: "Indica se o contrato esta habilitado." },
+      { name: "created_at", type: "Timestamp", description: "Data de criacao." },
+      { name: "updated_at", type: "Timestamp", description: "Data da ultima atualizacao." }
+    ],
+    PRODUCT_GROUP_PAYMENT_CONTRACT: [
+      { name: "id", type: "Integer", description: "Identificador da linha." },
+      { name: "product_group_id", type: "Integer", description: "Grupo que define o contrato padrao." },
+      { name: "payment_contract_id", type: "Integer", description: "Contrato liberado pelo grupo." },
+      { name: "priority", type: "Integer", description: "Ordem de exibicao do contrato no grupo." },
+      { name: "active", type: "Boolean", description: "Indica se a linha esta habilitada." },
+      { name: "valid_from", type: "Timestamp", description: "Inicio da vigencia da linha." },
+      { name: "valid_to", type: "Timestamp", description: "Fim da vigencia da linha." },
+      { name: "created_at", type: "Timestamp", description: "Data de criacao." },
+      { name: "updated_at", type: "Timestamp", description: "Data da ultima atualizacao." }
+    ],
+    PRODUCT_VERSION_PAYMENT_CONTRACT: [
+      { name: "id", type: "Integer", description: "Identificador da linha." },
+      { name: "product_version_id", type: "Integer", description: "Versao comercial que sobrescreve o grupo." },
+      { name: "payment_contract_id", type: "Integer", description: "Contrato liberado pela versao." },
+      { name: "priority", type: "Integer", description: "Ordem de exibicao do contrato na versao." },
+      { name: "active", type: "Boolean", description: "Indica se a linha esta habilitada." },
+      { name: "valid_from", type: "Timestamp", description: "Inicio da vigencia da linha." },
+      { name: "valid_to", type: "Timestamp", description: "Fim da vigencia da linha." },
       { name: "created_at", type: "Timestamp", description: "Data de criacao." },
       { name: "updated_at", type: "Timestamp", description: "Data da ultima atualizacao." }
     ],
     CART_PAYMENT: [
       { name: "id", type: "Integer", description: "Identificador da linha." },
       { name: "cart_id", type: "Integer", description: "Carrinho da tentativa." },
-      { name: "payment_method_id", type: "Integer", description: "Meio de pagamento usado." },
+      { name: "payment_contract_id", type: "Integer", description: "Contrato de pagamento usado." },
       { name: "amount", type: "Decimal(12,2)", description: "Valor da transacao." },
       { name: "status", type: "Varchar", description: "Estado da tentativa.", values: "PENDING | APPROVED | FAILED" },
       { name: "provider_reference", type: "Varchar", description: "Referencia externa da tentativa no provedor." },
