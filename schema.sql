@@ -1,5 +1,5 @@
 -- gnarus-payment-doc
--- Versao 1: empresa, unidade de negocio, produto, bundle versionado, ofertas de checkout, versao comercial, carrinho/checkout e pagamento
+-- Versao 1: empresa, unidade de negocio, produto, bundle versionado, ofertas de checkout, cupons, versao comercial, carrinho/checkout e pagamento
 -- A modelagem deve crescer de forma incremental, sem antecipar regras que ainda nao existem.
 
 CREATE TABLE company (
@@ -110,6 +110,72 @@ CREATE TABLE bundle_item (
     UNIQUE (bundle_version_id, product_version_id)
 );
 
+CREATE TABLE coupon (
+  id INTEGER PRIMARY KEY,
+  company_id INTEGER NOT NULL,
+  code VARCHAR(100) NOT NULL, -- unique within company
+  name VARCHAR(255) NOT NULL,
+  discount_type VARCHAR(20) NOT NULL DEFAULT 'PERCENT', -- PERCENT, FIXED_PRICE
+  percent_off DECIMAL(5, 2),
+  currency CHAR(3) NOT NULL DEFAULT 'BRL',
+  application_scope VARCHAR(20) NOT NULL DEFAULT 'CART', -- CART, TARGET
+  cumulative BOOLEAN NOT NULL DEFAULT FALSE,
+  max_uses INTEGER,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  valid_from TIMESTAMP NOT NULL,
+  valid_to TIMESTAMP,
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP,
+  CONSTRAINT fk_coupon_company
+    FOREIGN KEY (company_id) REFERENCES company(id),
+  CONSTRAINT uk_coupon_company_code
+    UNIQUE (company_id, code),
+  CONSTRAINT ck_coupon_discount_type
+    CHECK (discount_type IN ('PERCENT', 'FIXED_PRICE')),
+  CONSTRAINT ck_coupon_application_scope
+    CHECK (application_scope IN ('CART', 'TARGET')),
+  CONSTRAINT ck_coupon_discount_payload
+    CHECK (
+      (discount_type = 'PERCENT' AND percent_off IS NOT NULL) OR
+      (discount_type = 'FIXED_PRICE' AND percent_off IS NULL)
+    ),
+  CONSTRAINT ck_coupon_fixed_price_scope
+    CHECK (
+      (discount_type = 'PERCENT') OR
+      (discount_type = 'FIXED_PRICE' AND application_scope = 'TARGET')
+    )
+);
+
+CREATE TABLE coupon_target (
+  id INTEGER PRIMARY KEY,
+  coupon_id INTEGER NOT NULL,
+  target_type VARCHAR(20) NOT NULL, -- PRODUCT_VERSION, BUNDLE_VERSION
+  product_version_id INTEGER,
+  bundle_version_id INTEGER,
+  target_price_amount DECIMAL(12, 2), -- final price per eligible target when coupon.discount_type = FIXED_PRICE
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP,
+  CONSTRAINT fk_coupon_target_coupon
+    FOREIGN KEY (coupon_id) REFERENCES coupon(id),
+  CONSTRAINT fk_coupon_target_product_version
+    FOREIGN KEY (product_version_id) REFERENCES product_version(id),
+  CONSTRAINT fk_coupon_target_bundle_version
+    FOREIGN KEY (bundle_version_id) REFERENCES bundle_version(id),
+  CONSTRAINT ck_coupon_target_type
+    CHECK (target_type IN ('PRODUCT_VERSION', 'BUNDLE_VERSION')),
+  CONSTRAINT ck_coupon_target_reference
+    CHECK (
+      (target_type = 'PRODUCT_VERSION' AND product_version_id IS NOT NULL AND bundle_version_id IS NULL) OR
+      (target_type = 'BUNDLE_VERSION' AND product_version_id IS NULL AND bundle_version_id IS NOT NULL)
+    ),
+  CONSTRAINT ck_coupon_target_price_amount
+    CHECK (target_price_amount IS NULL OR target_price_amount >= 0),
+  CONSTRAINT uk_coupon_target_product_version
+    UNIQUE (coupon_id, product_version_id),
+  CONSTRAINT uk_coupon_target_bundle_version
+    UNIQUE (coupon_id, bundle_version_id)
+);
+
 CREATE TABLE cart (
   id INTEGER PRIMARY KEY,
   company_id INTEGER NOT NULL,
@@ -152,6 +218,60 @@ CREATE TABLE cart_item (
     FOREIGN KEY (product_version_id) REFERENCES product_version(id),
   CONSTRAINT fk_cart_item_business_unit
     FOREIGN KEY (business_unit_id) REFERENCES business_unit(id)
+);
+
+CREATE TABLE cart_coupon (
+  id INTEGER PRIMARY KEY,
+  cart_id INTEGER NOT NULL,
+  coupon_id INTEGER NOT NULL,
+  coupon_code VARCHAR(100) NOT NULL,
+  discount_type VARCHAR(20) NOT NULL, -- PERCENT, FIXED_PRICE
+  application_scope VARCHAR(20) NOT NULL, -- CART, TARGET
+  cumulative BOOLEAN NOT NULL DEFAULT FALSE,
+  status VARCHAR(20) NOT NULL DEFAULT 'APPLIED', -- APPLIED, REMOVED, EXPIRED
+  discount_amount DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  applied_at TIMESTAMP,
+  removed_at TIMESTAMP,
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP,
+  CONSTRAINT fk_cart_coupon_cart
+    FOREIGN KEY (cart_id) REFERENCES cart(id),
+  CONSTRAINT fk_cart_coupon_coupon
+    FOREIGN KEY (coupon_id) REFERENCES coupon(id),
+  CONSTRAINT ck_cart_coupon_discount_type
+    CHECK (discount_type IN ('PERCENT', 'FIXED_PRICE')),
+  CONSTRAINT ck_cart_coupon_application_scope
+    CHECK (application_scope IN ('CART', 'TARGET')),
+  CONSTRAINT ck_cart_coupon_status
+    CHECK (status IN ('APPLIED', 'REMOVED', 'EXPIRED'))
+);
+
+CREATE TABLE cart_coupon_item (
+  id INTEGER PRIMARY KEY,
+  cart_coupon_id INTEGER NOT NULL,
+  cart_item_id INTEGER NOT NULL,
+  discount_amount DECIMAL(12, 2) NOT NULL DEFAULT 0,
+  target_type VARCHAR(20), -- PRODUCT_VERSION, BUNDLE_VERSION
+  product_version_id INTEGER,
+  bundle_version_id INTEGER,
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP,
+  CONSTRAINT fk_cart_coupon_item_cart_coupon
+    FOREIGN KEY (cart_coupon_id) REFERENCES cart_coupon(id),
+  CONSTRAINT fk_cart_coupon_item_cart_item
+    FOREIGN KEY (cart_item_id) REFERENCES cart_item(id),
+  CONSTRAINT fk_cart_coupon_item_product_version
+    FOREIGN KEY (product_version_id) REFERENCES product_version(id),
+  CONSTRAINT fk_cart_coupon_item_bundle_version
+    FOREIGN KEY (bundle_version_id) REFERENCES bundle_version(id),
+  CONSTRAINT ck_cart_coupon_item_target_type
+    CHECK (target_type IS NULL OR target_type IN ('PRODUCT_VERSION', 'BUNDLE_VERSION')),
+  CONSTRAINT ck_cart_coupon_item_target_reference
+    CHECK (
+      (target_type IS NULL AND product_version_id IS NULL AND bundle_version_id IS NULL) OR
+      (target_type = 'PRODUCT_VERSION' AND product_version_id IS NOT NULL AND bundle_version_id IS NULL) OR
+      (target_type = 'BUNDLE_VERSION' AND product_version_id IS NULL AND bundle_version_id IS NOT NULL)
+    )
 );
 
 -- checkout_offer modela upsell, cross-sell e cortesia no checkout.

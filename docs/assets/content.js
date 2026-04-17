@@ -47,6 +47,26 @@ window.DOC_SITE = (() => {
     ]
   };
 
+  const couponTargetTable = {
+    title: "Alvos do cupom",
+    columns: ["target_type", "Referencia", "Leitura"],
+    rows: [
+      ["PRODUCT_VERSION", "coupon_target.product_version_id", "Cupom vale para uma versao comercial especifica de produto."],
+      ["BUNDLE_VERSION", "coupon_target.bundle_version_id", "Cupom vale para uma versao comercial especifica de bundle."]
+    ]
+  };
+
+  const couponStackingTable = {
+    title: "Combinacao entre cupons",
+    columns: ["Cenario", "Leitura", "Efeito"],
+    rows: [
+      ["Todos cumulativos", "Os cupons ativos permitem combinacao.", "Mais de um cart_coupon pode ficar APPLIED no mesmo cart."],
+      ["Novo cupom nao cumulativo", "O cupom pedido bloqueia combinacao.", "A aplicacao falha se ja existir outro cupom ativo."],
+      ["Cupom ativo nao cumulativo", "Ja existe bloqueio no carrinho.", "Outro cupom nao entra enquanto o atual estiver ativo."],
+      ["Cupom removido", "O registro sai do conjunto ativo.", "O carrinho pode voltar a aceitar nova combinacao."]
+    ]
+  };
+
   const siteNavigation = [
     {
       id: "overview",
@@ -70,22 +90,29 @@ window.DOC_SITE = (() => {
       href: "./catalogo.html"
     },
     {
-      id: "checkout",
+      id: "cupons",
       step: "04",
+      label: "Cupons",
+      description: "Desconto, elegibilidade e aplicacao",
+      href: "./cupons.html"
+    },
+    {
+      id: "checkout",
+      step: "05",
       label: "Checkout",
       description: "Carrinho, snapshot e venda mista",
       href: "./checkout.html"
     },
     {
       id: "pagamento",
-      step: "05",
+      step: "06",
       label: "Pagamento",
       description: "Meios, regras e tentativa",
       href: "./pagamento.html"
     },
     {
       id: "regras",
-      step: "06",
+      step: "07",
       label: "Regras e fluxos",
       description: "Jornadas ponta a ponta e regras de negocio",
       href: "./regras.html"
@@ -100,8 +127,8 @@ window.DOC_SITE = (() => {
       kicker: "Visao geral",
       title: "Sistema de pagamento",
       summary:
-        "A leitura parte do tenant, passa pelo catalogo, entra no checkout e fecha no pagamento. No fim, Regras e fluxos junta o que atravessa mais de uma entidade.",
-      tags: ["Empresa", "Catalogo", "Bundle", "Checkout", "Pagamento", "Fluxos"],
+        "A leitura parte do tenant, passa pelo catalogo, entra em cupons, segue para o checkout e fecha no pagamento. No fim, Regras e fluxos junta o que atravessa mais de uma entidade.",
+      tags: ["Empresa", "Catalogo", "Bundle", "Cupons", "Checkout", "Pagamento", "Fluxos"],
       panelTitle: "Use este guia para",
       panelItems: [
         "achar a ordem de leitura",
@@ -132,7 +159,7 @@ window.DOC_SITE = (() => {
           title: "01. Linha de leitura",
           copy: `Vale ler esta wiki na mesma ordem em que o sistema toma as decisoes.
 
-Primeiro vem **a empresa** e o papel da **business unit**. Depois entra **o catalogo**: produto, versao comercial, bundle e oferta configurada. Com isso resolvido, o **checkout** fica claro, porque ele congela um snapshot do que saiu do catalogo. O **pagamento** fecha a jornada com os meios disponiveis e o desfecho da tentativa.
+Primeiro vem **a empresa** e o papel da **business unit**. Depois entra **o catalogo**: produto, versao comercial, bundle e oferta configurada. Em seguida aparecem **os cupons**, porque eles apontam para alvos de catalogo antes de virarem desconto no carrinho. Com isso resolvido, o **checkout** fica claro, porque ele congela um snapshot do que saiu do catalogo e dos cupons aplicados. O **pagamento** fecha a jornada com os meios disponiveis e o desfecho da tentativa.
 
 Para ver a historia inteira, do acesso publico ao retorno do gateway, siga para [Regras e fluxos](./regras.html).`,
           tables: [
@@ -143,7 +170,8 @@ Para ver a historia inteira, do acesso publico ao retorno do gateway, siga para 
                 ["Inicio", "Qual e a linha de raciocinio da wiki?", "Mapa geral e ordem da documentacao."],
                 ["Empresa", "Quem define o tenant e o recorte interno?", "company, business_unit e camadas da modelagem."],
                 ["Catalogo", "O que pode ser vendido?", "product, product_version, bundle e checkout_offer."],
-                ["Checkout", "O que fica congelado na compra?", "cart, cart_item, cart_offer e venda mista."],
+                ["Cupons", "Como o desconto e cadastrado e onde ele pode valer?", "coupon, coupon_target e elegibilidade."],
+                ["Checkout", "O que fica congelado na compra?", "cart, cart_item, cart_coupon, cart_coupon_item, cart_offer e venda mista."],
                 ["Pagamento", "Como o meio aparece e como a tentativa termina?", "payment_method, payment_method_rule e cart_payment."],
                 ["Regras e fluxos", "Como tudo se encadeia do inicio ao fim?", "Jornadas ponta a ponta e regras de negocio."]
               ]
@@ -156,7 +184,7 @@ Para ver a historia inteira, do acesso publico ao retorno do gateway, siga para 
           title: "02. Mapa geral da modelagem",
           copy: `A wiki foi separada pelas mesmas camadas usadas para explicar o modelo.
 
-Essa divisao deixa cada assunto no seu lugar e evita misturar empresa, catalogo, checkout e pagamento na mesma conversa.`,
+Essa divisao deixa cada assunto no seu lugar e evita misturar empresa, catalogo, cupons, checkout e pagamento na mesma conversa.`,
           tables: [
             {
               title: "Camadas",
@@ -165,7 +193,8 @@ Essa divisao deixa cada assunto no seu lugar e evita misturar empresa, catalogo,
                 ["Empresa", "Tenant e recortes internos.", "company, business_unit"],
                 ["Catalogo", "O que pode ser vendido e em que versao.", "product, product_version"],
                 ["Bundle e ofertas", "Composicoes e sugestoes opcionais.", "bundle, bundle_version, bundle_item, checkout_offer"],
-                ["Checkout", "Snapshot da compra.", "cart, cart_item, cart_offer"],
+                ["Cupons", "Descontos e elegibilidade.", "coupon, coupon_target"],
+                ["Checkout", "Snapshot da compra.", "cart, cart_item, cart_coupon, cart_coupon_item, cart_offer"],
                 ["Pagamento", "Disponibilidade de meios e desfecho da tentativa.", "payment_method, payment_method_rule, cart_payment"]
               ]
             }
@@ -174,17 +203,21 @@ Essa divisao deixa cada assunto no seu lugar e evita misturar empresa, catalogo,
   EMPRESA[Empresa e BU]
   CATALOGO[Catalogo]
   BUNDLE[Bundle e ofertas]
+  CUPONS[Cupons]
   CHECKOUT[Checkout]
   PAGAMENTO[Pagamento]
   FLUXOS[Regras e fluxos]
 
   EMPRESA --> CATALOGO
   CATALOGO --> BUNDLE
+  CATALOGO --> CUPONS
   CATALOGO --> CHECKOUT
   BUNDLE --> CHECKOUT
+  CUPONS --> CHECKOUT
   CHECKOUT --> PAGAMENTO
   PAGAMENTO --> FLUXOS
   CHECKOUT --> FLUXOS
+  CUPONS --> FLUXOS
   CATALOGO --> FLUXOS`
         },
         {
@@ -208,7 +241,11 @@ Nao e uma lista para decorar. O ponto aqui e sair com o papel de cada conceito b
                 ["bundle_version", "Composicao historica de um bundle.", "Catalogo"],
                 ["bundle_item", "Linha da composicao versionada do bundle.", "Catalogo"],
                 ["checkout_offer", "Oferta opcional mostrada no checkout.", "Catalogo"],
+                ["coupon", "Regra de desconto cadastrada na empresa.", "Cupons"],
+                ["coupon_target", "Alvo elegivel do cupom.", "Cupons"],
                 ["cart", "Cabecalho do checkout.", "Checkout"],
+                ["cart_coupon", "Aplicacao do cupom no carrinho.", "Checkout"],
+                ["cart_coupon_item", "Alocacao do desconto do cupom nas linhas.", "Checkout"],
                 ["cart_item", "Snapshot da linha comprada.", "Checkout"],
                 ["cart_offer", "Registro da oferta exibida e da decisao do comprador.", "Checkout"],
                 ["payment_method", "Meio de pagamento disponivel na empresa.", "Pagamento"],
@@ -247,7 +284,7 @@ Nao e uma lista para decorar. O ponto aqui e sair com o papel de cada conceito b
         },
         {
           title: "Mapa por camadas",
-          text: "O mapa desta secao separa catalogo, bundle, ofertas, checkout e pagamento para a leitura nao virar um ER unico."
+          text: "O mapa desta secao separa catalogo, bundle, cupons, checkout e pagamento para a leitura nao virar um ER unico."
         }
       ],
       sidebarTitle: "Empresa",
@@ -276,6 +313,7 @@ Nao e uma lista para decorar. O ponto aqui e sair com o papel de cada conceito b
                 ["company", "Tenant da venda.", "Delimita catalogo, checkout e pagamento."],
                 ["business_unit", "Recorte interno da empresa.", "Organiza produto e pode participar da resolucao dos meios."],
                 ["product", "Item de catalogo da empresa.", "Sempre aponta para uma BU."],
+                ["coupon", "Desconto cadastrado dentro da empresa.", "Pode valer para o carrinho todo ou para alvos do catalogo."],
                 ["cart", "Checkout da empresa.", "Pode ter BU unica ou ficar nulo em venda mista."]
               ]
             }
@@ -313,6 +351,7 @@ Esses codigos nao sao globais. Eles sao unicos **dentro da empresa**. Isso permi
                 ["product", "obrigatorio", "obrigatorio", "Catalogo da empresa."],
                 ["bundle", "obrigatorio", "opcional", "Composicao publica da empresa."],
                 ["checkout_offer", "obrigatorio", "-", "Oferta opcional ligada ao catalogo."],
+                ["coupon", "obrigatorio", "-", "Desconto cadastrado dentro da empresa."],
                 ["cart", "obrigatorio", "opcional", "Checkout da empresa."],
                 ["cart_item", "via cart", "obrigatorio", "Snapshot da linha comprada."],
                 ["payment_method", "obrigatorio", "-", "Meio liberado por empresa."],
@@ -336,7 +375,8 @@ Os detalhes ficam nas proximas paginas. Por enquanto, o importante e localizar c
                 ["Catalogo", "company, business_unit, product, product_version", "Cadastro e historico comercial."],
                 ["Bundle", "bundle, bundle_version, bundle_item", "Composicao publica versionada."],
                 ["Ofertas", "checkout_offer, cart_offer", "Addons opcionais no checkout."],
-                ["Checkout", "cart, cart_item", "Snapshot da compra."],
+                ["Cupons", "coupon, coupon_target", "Descontos e elegibilidade."],
+                ["Checkout", "cart, cart_item, cart_coupon, cart_coupon_item", "Snapshot da compra e dos descontos."],
                 ["Pagamento", "payment_method, payment_method_rule, cart_payment", "Meios e desfecho da tentativa."]
               ]
             }
@@ -361,9 +401,16 @@ Os detalhes ficam nas proximas paginas. Por enquanto, o importante e localizar c
     CART_OFFER[cart_offer]
   end
 
+  subgraph CUPONS_GROUP["Cupons"]
+    COUPON[coupon]
+    COUPON_TARGET[coupon_target]
+  end
+
   subgraph CHECKOUT_GROUP["Checkout"]
     CART[cart]
     CART_ITEM[cart_item]
+    CART_COUPON[cart_coupon]
+    CART_COUPON_ITEM[cart_coupon_item]
   end
 
   subgraph PAGAMENTO_GROUP["Pagamento"]
@@ -388,10 +435,19 @@ Os detalhes ficam nas proximas paginas. Por enquanto, o importante e localizar c
   CART --> CART_OFFER
   CHECKOUT_OFFER --> CART_OFFER
 
+  COMPANY --> COUPON
+  COUPON --> COUPON_TARGET
+  PRODUCT_VERSION --> COUPON_TARGET
+  BUNDLE_VERSION --> COUPON_TARGET
+
   COMPANY --> CART
   BUSINESS_UNIT --> CART
   CART --> CART_ITEM
+  CART --> CART_COUPON
+  COUPON --> CART_COUPON
+  CART_COUPON --> CART_COUPON_ITEM
   PRODUCT_VERSION --> CART_ITEM
+  CART_ITEM --> CART_COUPON_ITEM
 
   COMPANY --> PAYMENT_METHOD
   COMPANY --> PAYMENT_METHOD_RULE
@@ -433,15 +489,27 @@ Os detalhes ficam nas proximas paginas. Por enquanto, o importante e localizar c
   OFFERED --> COURTESY[cart_item cortesia]`
             },
             {
+              id: "empresa-camadas-cupons",
+              title: "Cupons",
+              copy: `\`coupon\` define o desconto. \`coupon_target\` faz o relacionamento n:n com \`product_version\` e \`bundle_version\`, sem precisar de uma entidade intermediaria para o agrupamento.`,
+              diagram: `flowchart LR
+  COUPON[coupon] --> TARGET[coupon_target]
+  TARGET --> PRODUCT_VERSION[product_version]
+  TARGET --> BUNDLE_VERSION[bundle_version]`
+            },
+            {
               id: "empresa-camadas-checkout",
               title: "Checkout",
-              copy: `A camada de checkout guarda o snapshot da compra. O carrinho nao depende de reler o catalogo para saber o que foi vendido.`,
+              copy: `A camada de checkout guarda o snapshot da compra e dos descontos aplicados. O carrinho nao depende de reler o catalogo nem os cupons para saber o que foi vendido e abatido.`,
               diagram: `erDiagram
   COMPANY ||--o{ CART : "1:N"
   BUSINESS_UNIT ||--o{ CART : "0:N"
   BUNDLE_VERSION ||--o{ CART : "0:N"
   CART ||--o{ CART_ITEM : "1:N"
-  PRODUCT_VERSION ||--o{ CART_ITEM : "1:N"`
+  PRODUCT_VERSION ||--o{ CART_ITEM : "1:N"
+  CART ||--o{ CART_COUPON : "1:N"
+  CART_COUPON ||--o{ CART_COUPON_ITEM : "1:N"
+  CART_ITEM ||--o{ CART_COUPON_ITEM : "1:N"`
             },
             {
               id: "empresa-camadas-pagamento",
@@ -711,19 +779,174 @@ Nesta pagina fica so a configuracao. A decisao do comprador e a materializacao e
         }
       ]
     },
+    cupons: {
+      metaTitle: "Cupons",
+      metaDescription: "Desconto, elegibilidade, limite de uso e aplicacao do cupom no checkout.",
+      badge: "Pagina 04",
+      kicker: "Desconto antes do checkout",
+      title: "Cupons, elegibilidade e aplicacao",
+      summary:
+        "Cupons ficam entre catalogo e checkout. Eles definem o desconto, apontam onde podem valer e deixam o checkout registrar o snapshot da aplicacao.",
+      tags: ["coupon", "coupon_target", "cart_coupon", "cart_coupon_item"],
+      panelTitle: "Ao sair daqui",
+      panelItems: [
+        "como o desconto e cadastrado",
+        "quando o alvo fica no carrinho inteiro ou so em parte dele",
+        "como versoes comerciais entram na elegibilidade",
+        "onde o checkout registra a aplicacao do cupom"
+      ],
+      summaryCards: [
+        {
+          title: "Cupom nasce no tenant",
+          text: "coupon pertence a company e o code continua unico dentro da empresa."
+        },
+        {
+          title: "Aplicacao vira snapshot",
+          text: "cart_coupon e cart_coupon_item guardam o desconto aplicado sem depender de recalcular a regra depois."
+        }
+      ],
+      sidebarTitle: "Cupons",
+      sidebarCopy: "Use esta pagina para ver desconto, alvo elegivel, limite de uso e persistencia no checkout.",
+      sections: [
+        {
+          id: "cupons-cadastro",
+          label: "Regra base",
+          title: "01. Coupon",
+          copy: `\`coupon\` e a regra de desconto cadastrada na empresa. O mesmo cupom pode valer para o carrinho inteiro ou apenas para alvos elegiveis.
+
+Na v1, o desconto pode ser por porcentagem ou por preco final alvo por versao comercial elegivel. O limite de uso e global por cupom. O uso passa a contar quando o cupom entra no checkout e deixa de contar quando o registro e removido.`,
+          tables: [
+            {
+              title: "Valores controlados",
+              columns: ["Campo", "Descricao", "Valores"],
+              rows: [
+                ["coupon.discount_type", "Tipo do desconto.", "PERCENT | FIXED_PRICE"],
+                ["coupon.application_scope", "Onde o cupom vale.", "CART | TARGET"],
+                ["coupon.active", "Disponibilidade do cupom.", "true | false"]
+              ]
+            },
+            {
+              title: "Leitura do cupom",
+              columns: ["Campo", "Regra", "Uso"],
+              rows: [
+                ["company_id", "Obrigatorio.", "Delimita o tenant do cupom."],
+                ["code", "Unico por company.", "Codigo digitado no checkout."],
+                ["percent_off", "Preenchido em PERCENT.", "Percentual aplicado sobre o total elegivel."],
+                ["max_uses", "Opcional.", "Limite global de aplicacoes ativas do cupom."],
+                ["cumulative", "true ou false.", "Define se o cupom pode coexistir com outros no mesmo carrinho."]
+              ]
+            },
+            couponStackingTable
+          ],
+          diagram: `erDiagram
+  COMPANY ||--o{ COUPON : "1:N"
+  COUPON {
+    INTEGER id
+    VARCHAR code
+    VARCHAR discount_type
+    VARCHAR application_scope
+    BOOLEAN cumulative
+    INTEGER max_uses
+  }`,
+          sql: `INSERT INTO coupon (id, company_id, code, name, discount_type, percent_off, currency, application_scope, cumulative, max_uses, active, valid_from, valid_to, created_at, updated_at)
+VALUES
+  (1, 1, 'WELCOME10', 'Boas-vindas 10%', 'PERCENT', 10.00, 'BRL', 'CART', TRUE, 500, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (2, 1, 'PLUS199', 'Plus por 199,00', 'FIXED_PRICE', NULL, 'BRL', 'TARGET', FALSE, 3, TRUE, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`
+        },
+        {
+          id: "cupons-alvo",
+          label: "Elegibilidade",
+          title: "02. Coupon target",
+          copy: `\`coupon_target\` faz o relacionamento n:n entre \`coupon\` e as versoes comerciais elegiveis do catalogo. Um mesmo cupom pode ter muitos alvos, com uma linha por \`product_version\` ou \`bundle_version\`.
+
+Quando \`application_scope = TARGET\`, o cupom vale apenas para as linhas elegiveis. Quando \`application_scope = CART\`, todos os itens atuais do carrinho precisam estar cobertos pela soma dos \`coupon_target\` do cupom.
+
+Em \`FIXED_PRICE\`, o preco final fica cadastrado por alvo elegivel em \`coupon_target\`, e nao mais no cabecalho de \`coupon\`.`,
+          tables: [
+            {
+              title: "Regra do alvo",
+              columns: ["application_scope", "Leitura", "Efeito"],
+              rows: [
+                ["CART", "O desconto vale para o carrinho inteiro.", "Todos os itens atuais do carrinho precisam estar entre os coupon_target do cupom."],
+                ["TARGET", "O desconto vale so para itens elegiveis.", "O abatimento entra apenas nas linhas cobertas pelos coupon_target."]
+              ]
+            },
+            {
+              title: "Leitura do alvo",
+              columns: ["Campo", "Regra", "Uso"],
+              rows: [
+                ["target_type", "Obrigatorio.", "Define se o alvo e product_version ou bundle_version."],
+                ["target_price_amount", "Preenchido em FIXED_PRICE.", "Preco final por alvo elegivel."],
+                ["coupon_id", "Obrigatorio.", "Permite multiplos coupon_target para o mesmo cupom."]
+              ]
+            },
+            couponTargetTable
+          ],
+          diagram: `flowchart LR
+  COUPON[coupon] --> TARGET[coupon_target]
+  TARGET --> PRODUCT_VERSION[product_version]
+  TARGET --> BUNDLE_VERSION[bundle_version]`,
+          sql: `INSERT INTO coupon_target (id, coupon_id, target_type, product_version_id, bundle_version_id, target_price_amount, created_at, updated_at)
+VALUES
+  (1, 1, 'PRODUCT_VERSION', 2, NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (2, 1, 'PRODUCT_VERSION', 3, NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (3, 2, 'PRODUCT_VERSION', 2, NULL, 199.00, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (4, 2, 'BUNDLE_VERSION', NULL, 1, 349.00, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`
+        },
+        {
+          id: "cupons-aplicacao",
+          label: "Snapshot no checkout",
+          title: "03. Aplicacao do cupom",
+          copy: `\`cart_coupon\` registra o cupom aplicado no carrinho. Ele guarda o snapshot minimo para auditoria: codigo, tipo de desconto, escopo de aplicacao, cumulatividade, status e valor abatido.
+
+\`cart_coupon_item\` distribui o desconto pelas linhas elegiveis. Assim, \`cart.discount_amount\` continua sendo o total agregado do checkout, enquanto a alocacao detalhada fica por item.
+
+O fluxo canonico de aplicacao, bloqueio de combinacao e liberacao do limite fica em [Regras e fluxos](./regras.html#fluxo-cupom-cart).`,
+          tables: [
+            {
+              title: "Valores controlados",
+              columns: ["Campo", "Descricao", "Valores"],
+              rows: [["cart_coupon.status", "Estado da aplicacao.", "APPLIED | REMOVED | EXPIRED"]]
+            },
+            {
+              title: "Persistencia da aplicacao",
+              columns: ["Tabela", "Campos", "Uso"],
+              rows: [
+                ["cart_coupon", "coupon_code, discount_type, application_scope, cumulative, status, discount_amount", "Snapshot do cupom aplicado no carrinho."],
+                ["cart_coupon_item", "cart_item_id, discount_amount, target_type", "Distribuicao do desconto nas linhas elegiveis por product_version ou bundle_version."],
+                ["cart", "discount_amount", "Soma dos descontos ativos do carrinho."]
+              ]
+            }
+          ],
+          diagram: `flowchart LR
+  CART[cart] --> CART_COUPON[cart_coupon]
+  CART_COUPON --> CART_COUPON_ITEM[cart_coupon_item]
+  CART_COUPON_ITEM --> CART_ITEM[cart_item]`,
+          sql: `INSERT INTO cart_coupon (id, cart_id, coupon_id, coupon_code, discount_type, application_scope, cumulative, status, discount_amount, applied_at, removed_at, created_at, updated_at)
+VALUES
+  (1, 1, 1, 'WELCOME10', 'PERCENT', 'CART', TRUE, 'APPLIED', 39.98, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+INSERT INTO cart_coupon_item (id, cart_coupon_id, cart_item_id, discount_amount, target_type, product_version_id, bundle_version_id, created_at, updated_at)
+VALUES
+  (1, 1, 1, 19.99, NULL, NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (2, 1, 2, 19.99, NULL, NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`
+        }
+      ]
+    },
     checkout: {
       metaTitle: "Checkout",
       metaDescription: "Carrinho, snapshot da compra, materializacao da oferta e venda mista.",
-      badge: "Pagina 04",
+      badge: "Pagina 05",
       kicker: "Snapshot da compra",
       title: "Checkout, itens e selecao do comprador",
       summary:
-        "No checkout, o modelo deixa de ser cadastro e vira compra em andamento. A pagina cobre o cabecalho do carrinho, os itens congelados, a selecao de oferta e a venda mista.",
-      tags: ["cart", "cart_item", "cart_offer", "snapshot", "venda mista"],
+        "No checkout, o modelo deixa de ser cadastro e vira compra em andamento. A pagina cobre o cabecalho do carrinho, os itens congelados, os cupons aplicados, a selecao de oferta e a venda mista.",
+      tags: ["cart", "cart_item", "cart_coupon", "cart_coupon_item", "cart_offer", "snapshot", "venda mista"],
       panelTitle: "O que olhar aqui",
       panelItems: [
         "qual contexto fica no cart",
         "quais campos o cart_item congela",
+        "como o desconto do cupom entra no snapshot",
         "como a oferta vira item adicional",
         "quando o cabecalho perde a BU"
       ],
@@ -735,6 +958,10 @@ Nesta pagina fica so a configuracao. A decisao do comprador e a materializacao e
         {
           title: "BU por linha",
           text: "Quando a venda mistura unidades de negocio, a BU sai do cabecalho e fica obrigatoria em cada cart_item."
+        },
+        {
+          title: "Cupom vira registro",
+          text: "cart_coupon guarda o cupom aplicado e cart_coupon_item distribui o abatimento pelas linhas elegiveis."
         },
         {
           title: "Oferta vira registro",
@@ -750,7 +977,9 @@ Nesta pagina fica so a configuracao. A decisao do comprador e a materializacao e
           title: "01. Carrinho",
           copy: `\`cart\` representa o checkout da empresa. Ele carrega o contexto geral da venda: empresa, segmento comercial, bundle de origem quando houver, totais e status.
 
-\`business_unit_id\` no cabecalho e opcional. Ele so fica preenchido quando a venda inteira fecha em uma unica BU.`,
+\`business_unit_id\` no cabecalho e opcional. Ele so fica preenchido quando a venda inteira fecha em uma unica BU.
+
+\`discount_amount\` no cabecalho passa a refletir a soma dos descontos ativos registrados em \`cart_coupon\`.`,
           tables: [
             {
               title: "Contexto da venda",
@@ -759,7 +988,8 @@ Nesta pagina fica so a configuracao. A decisao do comprador e a materializacao e
                 ["company_id", "Obrigatorio.", "Empresa dona do checkout."],
                 ["bundle_version_id", "Opcional.", "Versao do bundle de origem do carrinho."],
                 ["business_unit_id", "Opcional.", "Unidade de negocio do carrinho; nulo quando a venda mistura BUs."],
-                ["cart_item.business_unit_id", "Obrigatorio.", "BU congelada em cada linha."]
+                ["cart_item.business_unit_id", "Obrigatorio.", "BU congelada em cada linha."],
+                ["discount_amount", "Obrigatorio.", "Soma dos descontos ativos aplicados ao carrinho."]
               ]
             },
             {
@@ -785,6 +1015,7 @@ Nesta pagina fica so a configuracao. A decisao do comprador e a materializacao e
           ],
           diagram: `erDiagram
   CART ||--o{ CART_ITEM : "1:N"
+  CART ||--o{ CART_COUPON : "1:N"
   CART ||--o{ CART_OFFER : "1:N"
   CART ||--o{ CART_PAYMENT : "1:N"`
         },
@@ -844,16 +1075,61 @@ O fluxo completo de \`sku\` e \`product_version.code\` ate o pagamento esta em [
           ],
           sql: `INSERT INTO cart (id, company_id, bundle_version_id, business_unit_id, buyer_reference, commercial_segment, status, currency, subtotal_amount, discount_amount, total_amount, expires_at, created_at, updated_at)
 VALUES
-  (1, 1, 1, NULL, 'BUYER-1001', 'B2C', 'DRAFT', 'BRL', 199.90, 0.00, 199.90, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+  (1, 1, 1, NULL, 'BUYER-1001', 'B2C', 'DRAFT', 'BRL', 399.80, 39.98, 359.82, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 INSERT INTO cart_item (id, cart_id, product_version_id, business_unit_id, quantity, unit_price, total_price, access_months, bonus_months, total_access_months, created_at, updated_at)
 VALUES
-  (1, 1, 2, 1, 1, 199.90, 199.90, 12, 2, 14, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`
+  (1, 1, 2, 1, 1, 199.90, 199.90, 12, 2, 14, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (2, 1, 3, 1, 1, 199.90, 199.90, 12, 0, 12, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`
+        },
+        {
+          id: "checkout-cupom-aplicado",
+          label: "Desconto persistido",
+          title: "03. Cupom aplicado no checkout",
+          copy: `\`cart_coupon\` registra cada cupom aplicado no carrinho. Quando o cupom e cumulativo, o checkout pode ter mais de um registro ativo. Quando algum deles nao e cumulativo, a combinacao para ali.
+
+\`cart_coupon_item\` existe para distribuir o desconto entre as linhas elegiveis. Esse detalhe evita perder a origem do abatimento quando o cupom vale apenas para uma \`product_version\` ou \`bundle_version\` do catalogo.`,
+          tables: [
+            {
+              title: "Leitura do snapshot do cupom",
+              columns: ["Tabela", "Campo", "Uso"],
+              rows: [
+                ["cart_coupon", "coupon_code", "Codigo aplicado no checkout."],
+                ["cart_coupon", "status", "Diz se o cupom segue ativo, removido ou expirado."],
+                ["cart_coupon", "discount_amount", "Valor abatido por aquele cupom."],
+                ["cart_coupon_item", "cart_item_id", "Linha que recebeu parte do desconto."],
+                ["cart_coupon_item", "target_type", "Origem da elegibilidade resolvida quando houver alvo de product_version ou bundle_version."]
+              ]
+            },
+            couponStackingTable
+          ],
+          diagram: `flowchart LR
+  CART[cart] --> COUPON[cart_coupon]
+  COUPON --> LINE[cart_coupon_item]
+  LINE --> ITEM[cart_item]
+  COUPON --> TOTAL[cart.discount_amount]`,
+          sql: `INSERT INTO cart (id, company_id, bundle_version_id, business_unit_id, buyer_reference, commercial_segment, status, currency, subtotal_amount, discount_amount, total_amount, expires_at, created_at, updated_at)
+VALUES
+  (1, 1, 1, NULL, 'BUYER-1001', 'B2C', 'DRAFT', 'BRL', 399.80, 39.98, 359.82, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+INSERT INTO cart_item (id, cart_id, product_version_id, business_unit_id, quantity, unit_price, total_price, access_months, bonus_months, total_access_months, created_at, updated_at)
+VALUES
+  (1, 1, 2, 1, 1, 199.90, 199.90, 12, 2, 14, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (2, 1, 3, 1, 1, 199.90, 199.90, 12, 0, 12, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+INSERT INTO cart_coupon (id, cart_id, coupon_id, coupon_code, discount_type, application_scope, cumulative, status, discount_amount, applied_at, removed_at, created_at, updated_at)
+VALUES
+  (1, 1, 1, 'WELCOME10', 'PERCENT', 'CART', TRUE, 'APPLIED', 39.98, CURRENT_TIMESTAMP, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+
+INSERT INTO cart_coupon_item (id, cart_coupon_id, cart_item_id, discount_amount, target_type, product_version_id, bundle_version_id, created_at, updated_at)
+VALUES
+  (1, 1, 1, 19.99, NULL, NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+  (2, 1, 2, 19.99, NULL, NULL, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);`
         },
         {
           id: "checkout-oferta-materializada",
           label: "Resposta do comprador",
-          title: "03. Oferta materializada no checkout",
+          title: "04. Oferta materializada no checkout",
           copy: `\`cart_offer\` registra a oferta exibida e a decisao do comprador. E aqui que a sugestao configurada em \`checkout_offer\` vira um fato no checkout.
 
 Se a oferta for aceita, o carrinho cria o item addon e, quando houver, o item de cortesia. Se for recusada, o registro continua servindo como historico da exibicao.`,
@@ -874,7 +1150,7 @@ Se a oferta for aceita, o carrinho cria o item addon e, quando houver, o item de
         {
           id: "checkout-venda-mista",
           label: "Mais de uma BU",
-          title: "04. Venda mista",
+          title: "05. Venda mista",
           copy: `Uma venda mista acontece quando o mesmo carrinho carrega linhas de business units diferentes.
 
 Nesse caso, o cabecalho continua ligado a \`company\` e ao segmento comercial, mas o \`business_unit_id\` do \`cart\` fica nulo. A BU passa a ser lida linha por linha em \`cart_item\`.`,
@@ -909,7 +1185,7 @@ Nesse caso, o cabecalho continua ligado a \`company\` e ao segmento comercial, m
     pagamento: {
       metaTitle: "Pagamento",
       metaDescription: "Meios de pagamento, regras de disponibilidade e desfecho da tentativa.",
-      badge: "Pagina 05",
+      badge: "Pagina 06",
       kicker: "Desfecho financeiro",
       title: "Meios, regras e tentativa de pagamento",
       summary:
@@ -1092,23 +1368,24 @@ Exemplos concretos de retorno do gateway ficam em [Regras e fluxos](./regras.htm
     regras: {
       metaTitle: "Regras e fluxos",
       metaDescription: "Fluxos ponta a ponta do catalogo ao pagamento e regras de negocio multi-entidade.",
-      badge: "Pagina 06",
+      badge: "Pagina 07",
       kicker: "Ponto canonico dos fluxos",
       title: "Regras de negocio e fluxos ponta a ponta",
       summary:
-        "Quando uma regra atravessa mais de uma entidade, a consulta certa e esta pagina. Ela concentra as jornadas publicas, a resolucao dos meios e os exemplos de retorno do gateway.",
-      tags: ["sku", "product_version.code", "bundle.code", "checkout_offer", "meios", "gateway"],
+        "Quando uma regra atravessa mais de uma entidade, a consulta certa e esta pagina. Ela concentra as jornadas publicas, a aplicacao de cupons, a resolucao dos meios e os exemplos de retorno do gateway.",
+      tags: ["sku", "product_version.code", "bundle.code", "coupon", "checkout_offer", "meios", "gateway"],
       panelTitle: "Use esta pagina quando",
       panelItems: [
         "precisar ver a historia completa",
         "quiser revisar um fluxo ponta a ponta",
+        "precisar validar a regra de cupom",
         "buscar a regra canonica de meios",
         "quiser exemplos de retorno do gateway"
       ],
       summaryCards: [
         {
           title: "Fluxo concentrado",
-          text: "Os fluxos que cruzam catalogo, checkout e pagamento ficam aqui para evitar repeticao em outras paginas."
+          text: "Os fluxos que cruzam catalogo, cupons, checkout e pagamento ficam aqui para evitar repeticao em outras paginas."
         },
         {
           title: "Regra primeiro, tela depois",
@@ -1203,9 +1480,74 @@ Nesse fluxo, o snapshot vem da composicao versionada do bundle, nao de uma monta
   C-->>U: carrinho carregado`
         },
         {
+          id: "fluxo-cupom-cart",
+          label: "Fluxo canonico",
+          title: "03. Cupom no carrinho inteiro",
+          copy: `Quando o cupom vale para o carrinho inteiro, o checkout primeiro valida empresa, vigencia, limite global, combinacao com os cupons ja ativos e cobertura total dos itens atuais por \`coupon_target\`.
+
+Se a aplicacao passar, o sistema grava \`cart_coupon\`, recalcula \`cart.discount_amount\` e ajusta \`cart.total_amount\`. Se o cupom sair do carrinho, o registro deixa de contar para o limite global e os totais sao refeitos.`,
+          tables: [
+            {
+              title: "Validacoes da aplicacao",
+              columns: ["Passo", "Tabela afetada", "Resultado"],
+              rows: [
+                ["Localizar cupom", "coupon", "Code valido dentro da empresa."],
+                ["Checar vigencia e ativo", "coupon", "Cupom aplicavel no momento."],
+                ["Checar limite global", "cart_coupon", "Quantidade de usos ativos abaixo de max_uses."],
+                ["Checar combinacao", "cart_coupon, coupon", "Nao existe bloqueio por cumulatividade."],
+                ["Checar cobertura total", "coupon_target, cart, cart_item", "Todos os itens do carrinho precisam estar cobertos pelos targets do cupom."],
+                ["Aplicar desconto", "cart_coupon, cart", "discount_amount e total_amount atualizados."]
+              ]
+            },
+            couponStackingTable
+          ],
+          diagram: `sequenceDiagram
+  participant U as Usuario
+  participant C as cart
+  participant CP as coupon
+  participant CT as coupon_target
+  participant CC as cart_coupon
+
+  U->>C: informa coupon.code
+  C->>CP: valida vigencia e limite
+  C->>CT: confere cobertura total do carrinho
+  C->>CC: checa cupons ativos
+  CC-->>C: combinacao permitida
+  C->>CC: grava status APPLIED
+  C->>C: recalcula discount_amount e total_amount`
+        },
+        {
+          id: "fluxo-cupom-target",
+          label: "Fluxo canonico",
+          title: "04. Cupom segmentado por versao comercial",
+          copy: `Quando \`coupon.application_scope = TARGET\`, o sistema resolve primeiro os alvos elegiveis em \`coupon_target\`. Esses alvos apontam direto para \`product_version\` ou \`bundle_version\`.
+
+Depois da resolucao, o checkout distribui o abatimento nas linhas elegiveis em \`cart_coupon_item\`. Em \`FIXED_PRICE\`, \`target_price_amount\` e lido no proprio \`coupon_target\` como preco final por alvo elegivel. O cabecalho continua guardando apenas o total agregado em \`cart.discount_amount\`.`,
+          tables: [
+            {
+              title: "Resolucao da elegibilidade",
+              columns: ["Passo", "Tabela afetada", "Resultado"],
+              rows: [
+                ["Ler alvo do cupom", "coupon_target", "product_version ou bundle_version elegivel identificado."],
+                ["Cruzar alvo com o carrinho", "cart, cart_item", "Linhas elegiveis encontradas a partir do relacionamento n:n."],
+                ["Distribuir desconto", "cart_coupon_item", "Cada linha recebe sua parte do abatimento."],
+                ["Atualizar cabecalho", "cart", "discount_amount agregado recalculado."]
+              ]
+            },
+            couponTargetTable
+          ],
+          diagram: `flowchart LR
+  COUPON[coupon] --> TARGET[coupon_target]
+  TARGET --> PRODUCT_VERSION[product_version]
+  TARGET --> BUNDLE_VERSION[bundle_version]
+  PRODUCT_VERSION --> MATCH
+  BUNDLE_VERSION --> MATCH
+  MATCH --> SNAPSHOT[cart_coupon_item]`
+        },
+        {
           id: "fluxo-oferta-checkout",
           label: "Fluxo canonico",
-          title: "03. Oferta opcional no checkout",
+          title: "05. Oferta opcional no checkout",
           copy: `A oferta parte da versao de origem do produto. Quando o comprador aceita, o checkout grava \`cart_offer\` e cria os itens adicionais necessarios.
 
 O ganho dessa separacao e simples: \`checkout_offer\` define a regra; \`cart_offer\` registra o que realmente aconteceu.`,
@@ -1248,7 +1590,7 @@ O ganho dessa separacao e simples: \`checkout_offer\` define a regra; \`cart_off
         {
           id: "fluxo-venda-mista",
           label: "Regra de leitura",
-          title: "04. Venda mista e origem dos totais",
+          title: "06. Venda mista e origem dos totais",
           copy: `A venda mista existe quando o mesmo carrinho carrega linhas de BUs diferentes.
 
 O cabecalho do checkout continua apontando para a empresa e para o segmento comercial. A BU do cabecalho so existe quando a venda fecha em uma unica BU. Os totais continuam sendo calculados pela soma dos itens do carrinho.`,
@@ -1262,7 +1604,7 @@ O cabecalho do checkout continua apontando para a empresa e para o segmento come
                 ["business_unit_id", "header do cart ou linha do item", "Resumo do checkout ou snapshot da linha."],
                 ["buyer_reference", "sessao, token ou customer futuro", "Identifica o dono do checkout."],
                 ["subtotal_amount", "soma de cart_item.total_price", "Resumo dos itens."],
-                ["discount_amount", "cupom ou campanha futura", "Zero na v1."],
+                ["discount_amount", "soma de cart_coupon.discount_amount", "Resumo agregado dos descontos ativos."],
                 ["total_amount", "subtotal_amount - discount_amount", "Total cobrado."]
               ]
             },
@@ -1290,7 +1632,7 @@ O cabecalho do checkout continua apontando para a empresa e para o segmento come
         {
           id: "fluxo-meios-pagamento",
           label: "Regra canonica",
-          title: "05. Resolucao dos meios de pagamento",
+          title: "07. Resolucao dos meios de pagamento",
           copy: `A lista de meios parte da empresa do carrinho. Depois o sistema procura o primeiro scope com regra ativa na ordem PRODUCT, BUSINESS_UNIT, SEGMENT e GLOBAL.
 
 Em venda mista, a regra de business unit so vale quando a compra fecha em uma unica BU. Nos demais casos, a resolucao segue produto, segmento ou fallback global.`,
@@ -1314,7 +1656,7 @@ Em venda mista, a regra de business unit so vale quando a compra fecha em uma un
         {
           id: "fluxo-desfecho-pagamento",
           label: "Retorno externo",
-          title: "06. Tentativa e desfecho do pagamento",
+          title: "08. Tentativa e desfecho do pagamento",
           copy: `A tentativa nasce em \`PENDING\`. O provedor decide se ela vira \`APPROVED\` ou \`FAILED\`.
 
 Os exemplos abaixo mostram como os campos de \`cart_payment\` ficam preenchidos de acordo com o retorno do gateway.`,
@@ -1427,6 +1769,33 @@ Os exemplos abaixo mostram como os campos de \`cart_payment\` ficam preenchidos 
       { name: "created_at", type: "Timestamp", description: "Data de criacao." },
       { name: "updated_at", type: "Timestamp", description: "Data da ultima atualizacao." }
     ],
+    COUPON: [
+      { name: "id", type: "Integer", description: "Identificador da linha." },
+      { name: "company_id", type: "Integer", description: "Empresa dona do cupom." },
+      { name: "code", type: "Varchar", description: "Codigo do cupom dentro da empresa." },
+      { name: "name", type: "Varchar", description: "Nome interno do cupom." },
+      { name: "discount_type", type: "Varchar", description: "Tipo do desconto.", values: "PERCENT | FIXED_PRICE" },
+      { name: "percent_off", type: "Decimal(5,2)", description: "Percentual do desconto quando o tipo for PERCENT." },
+      { name: "currency", type: "Char(3)", description: "Moeda do desconto.", values: "BRL" },
+      { name: "application_scope", type: "Varchar", description: "Escopo do desconto.", values: "CART | TARGET" },
+      { name: "cumulative", type: "Boolean", description: "Define se o cupom pode coexistir com outros no mesmo carrinho." },
+      { name: "max_uses", type: "Integer", description: "Limite global de usos ativos do cupom." },
+      { name: "active", type: "Boolean", description: "Indica se o cupom esta habilitado." },
+      { name: "valid_from", type: "Timestamp", description: "Inicio da vigencia do cupom." },
+      { name: "valid_to", type: "Timestamp", description: "Fim da vigencia do cupom." },
+      { name: "created_at", type: "Timestamp", description: "Data de criacao." },
+      { name: "updated_at", type: "Timestamp", description: "Data da ultima atualizacao." }
+    ],
+    COUPON_TARGET: [
+      { name: "id", type: "Integer", description: "Identificador da linha." },
+      { name: "coupon_id", type: "Integer", description: "Cupom pai." },
+      { name: "target_type", type: "Varchar", description: "Tipo do alvo elegivel.", values: "PRODUCT_VERSION | BUNDLE_VERSION" },
+      { name: "product_version_id", type: "Integer", description: "Versao comercial elegivel, quando o alvo for PRODUCT_VERSION." },
+      { name: "bundle_version_id", type: "Integer", description: "Versao comercial do bundle, quando o alvo for BUNDLE_VERSION." },
+      { name: "target_price_amount", type: "Decimal(12,2)", description: "Preco final por alvo elegivel quando o cupom for FIXED_PRICE." },
+      { name: "created_at", type: "Timestamp", description: "Data de criacao." },
+      { name: "updated_at", type: "Timestamp", description: "Data da ultima atualizacao." }
+    ],
     CART: [
       { name: "id", type: "Integer", description: "Identificador da linha." },
       { name: "company_id", type: "Integer", description: "Empresa dona do carrinho." },
@@ -1440,6 +1809,32 @@ Os exemplos abaixo mostram como os campos de \`cart_payment\` ficam preenchidos 
       { name: "discount_amount", type: "Decimal(12,2)", description: "Valor de desconto aplicado." },
       { name: "total_amount", type: "Decimal(12,2)", description: "Total final do carrinho." },
       { name: "expires_at", type: "Timestamp", description: "Momento de expiracao do carrinho." },
+      { name: "created_at", type: "Timestamp", description: "Data de criacao." },
+      { name: "updated_at", type: "Timestamp", description: "Data da ultima atualizacao." }
+    ],
+    CART_COUPON: [
+      { name: "id", type: "Integer", description: "Identificador da linha." },
+      { name: "cart_id", type: "Integer", description: "Carrinho onde o cupom foi aplicado." },
+      { name: "coupon_id", type: "Integer", description: "Cupom de origem." },
+      { name: "coupon_code", type: "Varchar", description: "Codigo do cupom salvo no momento da aplicacao." },
+      { name: "discount_type", type: "Varchar", description: "Tipo do desconto salvo no snapshot.", values: "PERCENT | FIXED_PRICE" },
+      { name: "application_scope", type: "Varchar", description: "Escopo salvo no snapshot.", values: "CART | TARGET" },
+      { name: "cumulative", type: "Boolean", description: "Indica se o cupom podia combinar no momento da aplicacao." },
+      { name: "status", type: "Varchar", description: "Estado da aplicacao.", values: "APPLIED | REMOVED | EXPIRED" },
+      { name: "discount_amount", type: "Decimal(12,2)", description: "Valor abatido por esse cupom." },
+      { name: "applied_at", type: "Timestamp", description: "Momento da aplicacao." },
+      { name: "removed_at", type: "Timestamp", description: "Momento da remocao, quando houver." },
+      { name: "created_at", type: "Timestamp", description: "Data de criacao." },
+      { name: "updated_at", type: "Timestamp", description: "Data da ultima atualizacao." }
+    ],
+    CART_COUPON_ITEM: [
+      { name: "id", type: "Integer", description: "Identificador da linha." },
+      { name: "cart_coupon_id", type: "Integer", description: "Aplicacao do cupom pai." },
+      { name: "cart_item_id", type: "Integer", description: "Linha do carrinho que recebeu parte do desconto." },
+      { name: "discount_amount", type: "Decimal(12,2)", description: "Valor abatido nessa linha." },
+      { name: "target_type", type: "Varchar", description: "Origem da elegibilidade resolvida.", values: "PRODUCT_VERSION | BUNDLE_VERSION" },
+      { name: "product_version_id", type: "Integer", description: "Versao comercial resolvida, quando houver." },
+      { name: "bundle_version_id", type: "Integer", description: "Versao comercial do bundle resolvida, quando houver." },
       { name: "created_at", type: "Timestamp", description: "Data de criacao." },
       { name: "updated_at", type: "Timestamp", description: "Data da ultima atualizacao." }
     ],
