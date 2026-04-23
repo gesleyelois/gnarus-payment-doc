@@ -83,8 +83,17 @@ const renderBlock = (block, { subsection = false } = {}) => {
       ${block.diagram
         ? `
           <div class="diagram-wrap ${subsection ? "mt-6" : "mt-8"}">
-            <p class="diagram-hint">Passe o mouse sobre uma entidade para ver os campos e descricoes.</p>
-            <pre class="mermaid">${escapeHtml(block.diagram)}</pre>
+            <div class="diagram-toolbar">
+              <p class="diagram-hint">Passe o mouse sobre uma entidade para ver os campos e descricoes.</p>
+              <div class="diagram-controls" aria-label="Controles do diagrama">
+                <button type="button" class="diagram-control" data-diagram-action="zoom-out">-</button>
+                <button type="button" class="diagram-control" data-diagram-action="reset">100%</button>
+                <button type="button" class="diagram-control" data-diagram-action="zoom-in">+</button>
+              </div>
+            </div>
+            <div class="diagram-stage" data-diagram-stage="true">
+              <pre class="mermaid">${escapeHtml(block.diagram)}</pre>
+            </div>
           </div>
         `
         : ""}
@@ -340,6 +349,120 @@ const bindEntityHover = () => {
   });
 };
 
+const bindDiagramZoom = () => {
+  document.querySelectorAll(".diagram-wrap").forEach((wrap) => {
+    if (wrap.dataset.zoomBound === "true") return;
+
+    const stage = wrap.querySelector("[data-diagram-stage='true']");
+    if (!stage) return;
+
+    let scale = Number(wrap.dataset.diagramScale || "1");
+    let translateX = Number(wrap.dataset.diagramTranslateX || "0");
+    let translateY = Number(wrap.dataset.diagramTranslateY || "0");
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+    let dragOriginX = 0;
+    let dragOriginY = 0;
+    const minScale = 0.6;
+    const maxScale = 8.0;
+    const step = 0.1;
+
+    const applyTransform = () => {
+      stage.style.setProperty("--diagram-scale", String(scale));
+      stage.style.setProperty("--diagram-translate-x", `${translateX}px`);
+      stage.style.setProperty("--diagram-translate-y", `${translateY}px`);
+      const resetButton = wrap.querySelector('[data-diagram-action="reset"]');
+      if (resetButton) {
+        resetButton.textContent = `${Math.round(scale * 100)}%`;
+      }
+    };
+
+    const setScale = (nextScale, anchorClientX = null, anchorClientY = null) => {
+      const clamped = Math.min(maxScale, Math.max(minScale, Number(nextScale.toFixed(2))));
+      if (anchorClientX !== null && anchorClientY !== null) {
+        const rect = wrap.getBoundingClientRect();
+        const pointX = anchorClientX - rect.left;
+        const pointY = anchorClientY - rect.top;
+        const worldX = (pointX - translateX) / scale;
+        const worldY = (pointY - translateY) / scale;
+        scale = clamped;
+        translateX = pointX - worldX * scale;
+        translateY = pointY - worldY * scale;
+      } else {
+        scale = clamped;
+      }
+      wrap.dataset.diagramScale = String(scale);
+      wrap.dataset.diagramTranslateX = String(translateX);
+      wrap.dataset.diagramTranslateY = String(translateY);
+      applyTransform();
+    };
+
+    wrap.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+
+      const action = target.getAttribute("data-diagram-action");
+      if (!action) return;
+
+      event.preventDefault();
+
+      if (action === "zoom-in") {
+        setScale(scale + step);
+      } else if (action === "zoom-out") {
+        setScale(scale - step);
+      } else if (action === "reset") {
+        translateX = 0;
+        translateY = 0;
+        setScale(1);
+      }
+    });
+
+    wrap.addEventListener("wheel", (event) => {
+      event.preventDefault();
+      const delta = event.deltaY < 0 ? step : -step;
+      setScale(scale + delta, event.clientX, event.clientY);
+    }, { passive: false });
+
+    wrap.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      if (event.target instanceof Element && event.target.closest(".diagram-controls")) return;
+      isDragging = true;
+      startX = event.clientX;
+      startY = event.clientY;
+      dragOriginX = translateX;
+      dragOriginY = translateY;
+      wrap.classList.add("is-panning");
+      wrap.setPointerCapture?.(event.pointerId);
+    });
+
+    wrap.addEventListener("pointermove", (event) => {
+      if (!isDragging) return;
+      translateX = dragOriginX + (event.clientX - startX);
+      translateY = dragOriginY + (event.clientY - startY);
+      wrap.dataset.diagramTranslateX = String(translateX);
+      wrap.dataset.diagramTranslateY = String(translateY);
+      applyTransform();
+    });
+
+    const endDrag = (event) => {
+      if (!isDragging) return;
+      isDragging = false;
+      wrap.classList.remove("is-panning");
+      if (event?.pointerId !== undefined && wrap.hasPointerCapture?.(event.pointerId)) {
+        wrap.releasePointerCapture(event.pointerId);
+      }
+    };
+
+    wrap.addEventListener("pointerup", endDrag);
+    wrap.addEventListener("pointercancel", endDrag);
+    wrap.addEventListener("pointerleave", endDrag);
+
+    applyTransform();
+    wrap.dataset.zoomBound = "true";
+  });
+};
+
 const bindActiveSectionTracking = () => {
   const sectionNodes = Array.from(document.querySelectorAll(".doc-section[id], .doc-subsection[id]"));
   const links = Array.from(document.querySelectorAll("[data-section-link='true']"));
@@ -445,6 +568,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
       await window.mermaid.run({ querySelector: ".mermaid" });
       bindEntityHover();
+      bindDiagramZoom();
     } catch (error) {
       console.warn("Falha ao renderizar diagramas Mermaid:", error);
     }
